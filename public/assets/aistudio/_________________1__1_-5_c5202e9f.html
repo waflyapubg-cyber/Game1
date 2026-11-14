@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Мой город версия 1</title>
+<style>
+:root{--bg:#b9cdd6;--panel:#1B2A3D;--panel2:#22345c;--ink:#FFF7F4;--line:#08112a;--acc:#3f6fd6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#6f8696}}
+:root[data-theme="dark"]{--bg:#6f8696}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);touch-action:none;overscroll-behavior:none}
+canvas{display:block;width:100%;height:100%}
+#err{display:none;position:fixed;left:8px;right:8px;top:8px;max-height:40vh;overflow:auto;padding:8px;border-radius:8px;background:rgba(160,30,30,.9);color:#FFF7F4;font:12px monospace;white-space:pre-wrap;z-index:9}
+
+.pill{font:700 16px/1 system-ui,sans-serif;padding:10px 14px;background:var(--panel);color:var(--ink);border:2px solid var(--line);border-radius:16px;box-shadow:0 3px 0 var(--line)}
+#hud{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 10px);display:flex;justify-content:space-between;padding:0 12px;pointer-events:none;z-index:5}
+#money.bump{animation:bump .4s}@keyframes bump{40%{transform:scale(1.2) rotate(-4deg)}}
+#undo,#mbtn{pointer-events:auto;min-width:48px;touch-action:manipulation}#undo:disabled{opacity:.4}
+#hint{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 66px);transform:translateX(-50%);font-size:13px;padding:7px 12px;max-width:90vw;text-align:center;pointer-events:none;z-index:5}
+#opts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 86px);display:none;gap:6px;padding:6px;z-index:5}
+#tip{position:fixed;display:none;transform:translate(-50%,-100%);pointer-events:none;z-index:6;white-space:nowrap;font-size:14px;padding:8px 12px}
+#tip.bad{background:#e05a4a;color:#FFF7F4;border-color:#7a2a20;box-shadow:0 3px 0 #7a2a20}
+
+body.menu #hud,body.menu #bar,body.menu #hint,body.menu #opts,body.menu #tip{display:none!important}
+[hidden]{display:none!important}
+#menu{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:space-between;align-items:center;box-sizing:border-box;padding:calc(env(safe-area-inset-top,0px) + 26px) 14px calc(env(safe-area-inset-bottom,0px) + 16px);background:linear-gradient(rgba(20,30,40,.4),transparent 28%,transparent 55%,rgba(20,30,40,.3))}
+#menu h1{margin:0;text-align:center;color:#FFF7F4;font:800 34px/1.1 system-ui,sans-serif;text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 18px rgba(0,0,0,.35)}
+#menu h1 small{display:block;margin-top:6px;font:600 14px system-ui,sans-serif;opacity:.92}
+.mc{width:min(420px,100%);box-sizing:border-box;padding:12px;background:var(--panel);color:var(--ink);border:2px solid var(--line);border-radius:20px;box-shadow:0 3px 0 var(--line);font:700 15px system-ui,sans-serif}
+#m1,#m2{display:flex;flex-direction:column;gap:10px}
+.mc button,.mc input{box-sizing:border-box;min-height:48px;padding:0 10px;border:2px solid var(--line);border-radius:13px;background:var(--panel);color:var(--ink);font:700 16px system-ui,sans-serif;touch-action:manipulation;min-width:0}
+.mc .big{min-height:58px;font-size:19px}#play,#go,.mc .on{background:var(--acc)}
+.row{display:flex;gap:6px;align-items:center}.row>*{flex:1}.row>b{flex:0 0 74px}#back{flex:.5}
+.chips{display:flex;gap:6px}.chips button{flex:1;min-height:44px;font-size:13px;padding:0 3px}.chips button:first-child{flex:.55}
+#mm{align-self:center;flex:none;height:min(26vh,54vw);width:auto;aspect-ratio:1;border:2px solid var(--line);border-radius:13px}
+#load{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(40,60,70,.55);color:#FFF7F4;font:700 22px system-ui,sans-serif;backdrop-filter:blur(4px)}
+body.menu #top,body.menu #rp{display:none!important}
+#hud{justify-content:flex-start;padding:0 calc(env(safe-area-inset-right,0px) + 12px) 0 calc(env(safe-area-inset-left,0px) + 12px)}
+#mbtn{margin-left:auto}#undo{margin-left:8px}
+#menu{flex-direction:row;justify-content:space-around;align-items:center;gap:18px;padding:calc(env(safe-area-inset-top,0px) + 10px) calc(env(safe-area-inset-right,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 10px) calc(env(safe-area-inset-left,0px) + 16px)}
+#menu h1{font-size:28px;flex:0 1 260px}
+.mc{width:auto;max-width:calc(100vw - 320px);max-height:calc(100vh - 20px);overflow:auto;padding:10px}
+#m1{width:min(300px,38vw)}
+#m2:not([hidden]){display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center}
+#mm{grid-row:1/span 5;height:min(62vh,230px)}
+.mc button,.mc input{min-height:38px;font-size:14px;background:var(--panel2)}
+.mc .big{min-height:48px;font-size:17px}#play,#go,.mc .on{background:var(--acc)}
+.chips button{min-height:34px}.row>b{flex:0 0 64px}
+
+:root{--u:calc(100vh/1190)}@supports (height:100dvh){:root{--u:calc(100dvh/1190)}}
+.pill{padding:6px 10px;font-size:13px;border-radius:14px}
+#hint{top:calc(env(safe-area-inset-top,0px) + calc(var(--u)*304));font-size:12px}
+#top{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + calc(var(--u)*167));transform:translateX(-50%);display:flex;align-items:center;gap:calc(var(--u)*20);z-index:5;pointer-events:none}
+#top>*{pointer-events:auto}
+#tool{display:flex;align-items:center;box-sizing:border-box;height:calc(var(--u)*121);padding:0 calc(var(--u)*14) 0 calc(var(--u)*40);gap:calc(var(--u)*22);border-width:max(1px,calc(var(--u)*3));border-radius:calc(var(--u)*40);box-shadow:0 calc(var(--u)*8) calc(var(--u)*16) rgba(0,0,0,.35);font-size:calc(var(--u)*52);white-space:nowrap}
+#toolicon svg{display:block;height:calc(var(--u)*56);width:auto}
+#toolx{width:calc(var(--u)*118);height:calc(var(--u)*92);border:0;border-radius:calc(var(--u)*30);background:#7b3340;color:#ffd5da;font:700 calc(var(--u)*60) system-ui,sans-serif;touch-action:manipulation}
+#opts{position:static;transform:none;gap:4px;padding:4px;box-shadow:0 calc(var(--u)*8) calc(var(--u)*16) rgba(0,0,0,.35)}
+#opts button{min-height:28px;padding:0 9px;font-size:12px;background:var(--panel2)}
+#opts button.on{background:var(--acc)}
+#bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + calc(var(--u)*12));width:80.8vw;height:calc(var(--u)*147);box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;padding:0 10.87vw 0 6.17vw;background:var(--panel);border:max(1px,calc(var(--u)*3)) solid var(--line);border-radius:calc(var(--u)*36);box-shadow:0 calc(var(--u)*8) calc(var(--u)*16) rgba(0,0,0,.35);z-index:5}
+#bar button{width:calc(var(--u)*117);height:calc(var(--u)*121);padding:0;display:flex;align-items:center;justify-content:center;border:max(1px,calc(var(--u)*3)) solid var(--line);border-radius:calc(var(--u)*26);background:var(--panel2);touch-action:manipulation}
+#bar button.on{background:var(--acc)}
+#bar svg{height:calc(var(--u)*60);width:auto}
+#rp{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + calc(var(--u)*174));width:77.95vw;box-sizing:border-box;display:none;padding:0;background:var(--panel);color:var(--ink);border:max(1px,calc(var(--u)*3)) solid var(--line);border-radius:calc(var(--u)*40);box-shadow:0 calc(var(--u)*8) calc(var(--u)*16) rgba(0,0,0,.35);font-family:system-ui,sans-serif;z-index:5}
+#rp .rh{position:relative;height:calc(var(--u)*84);display:flex;align-items:center;padding-left:calc(var(--u)*35)}
+#rp .rh b{font-size:calc(var(--u)*44);font-weight:600;line-height:1.1;padding-bottom:calc(var(--u)*6);border-bottom:calc(var(--u)*4) solid var(--acc)}
+#rpx{position:absolute;right:calc(var(--u)*52);top:50%;transform:translateY(-50%);width:calc(var(--u)*60);height:calc(var(--u)*60);border:0;background:none;color:var(--ink);font-size:calc(var(--u)*40);touch-action:manipulation}
+.tabs{height:calc(var(--u)*58);padding-left:calc(var(--u)*55);display:flex}
+.tab{display:flex;align-items:center;gap:calc(var(--u)*12);padding:0 calc(var(--u)*6);font-size:calc(var(--u)*38);font-weight:600;color:#8fb0ff;border-bottom:calc(var(--u)*4) solid var(--acc)}
+.tab svg{height:calc(var(--u)*46);width:auto}
+.tab i{font-style:normal;font-weight:500;font-size:calc(var(--u)*32);opacity:.8}
+.cards{display:flex;gap:calc(var(--u)*14);overflow-x:auto;padding:calc(var(--u)*11) calc(var(--u)*55) calc(var(--u)*32);touch-action:pan-x}
+.card{flex:0 0 calc(var(--u)*270);box-sizing:border-box;display:flex;flex-direction:column;align-items:flex-start;padding:calc(var(--u)*4) calc(var(--u)*4) calc(var(--u)*8);border:calc(var(--u)*3) solid transparent;border-radius:calc(var(--u)*28);background:var(--panel2);color:var(--ink);text-align:left;touch-action:manipulation;font-family:system-ui,sans-serif;font-weight:600;font-size:calc(var(--u)*34);line-height:calc(var(--u)*36)}
+.card.on{border-color:var(--acc);background:#2c4a86}
+.card svg{width:100%;height:calc(var(--u)*165);border-radius:calc(var(--u)*20);display:block;margin-bottom:calc(var(--u)*5)}
+.card b,.card span,.card i{padding-left:calc(var(--u)*4)}
+.card span,.card i{font-style:normal;font-size:calc(var(--u)*28);font-weight:500;opacity:.75}
+/* скрыто: подсказка и кнопки «Прямая / Изгиб / 🔄 / ✕». Чтобы вернуть — удалить две строки ниже */
+#hint{display:none!important}
+#opts{display:none!important}
+/* стеклянный фон интерфейса: #1B2A3D + размытие того, что под ним */
+.pill,#bar,#rp,.mc{background:rgba(27,42,61,.78);-webkit-backdrop-filter:blur(16px) saturate(1.35);backdrop-filter:blur(16px) saturate(1.35)}
+#bar,#rp,#tool,.mc{box-shadow:0 calc(var(--u)*8) calc(var(--u)*16) rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.12)}
+/* минимализм: без обводок и теней, остаётся только стеклянный фон */
+.pill,#bar,#bar button,#rp,#tool,.card,.mc,.mc button,.mc input,#opts,#opts button,#mm{border:0!important;box-shadow:none!important}
+</style></head><body class="menu">
+<div id="err"></div><div id="hud"><div class="pill" id="money">🪙 5000</div><button class="pill" id="mbtn">☰</button><button class="pill" id="undo" disabled>↶</button></div><div class="pill" id="hint"></div><div class="pill" id="tip"></div><div id="top"><div class="pill" id="tool" hidden><span id="toolicon"></span><span id="toolname"></span><button id="toolx">✕</button></div><div id="opts" class="pill"><button data-s="line">━ Прямая</button><button data-s="elbow">┗ Изгиб</button><button id="flip">🔄</button><button id="cancel">✕</button></div></div><div id="rp"><div class="rh"><b>Дороги</b><button id="rpx">✕</button></div><div class="tabs"><div class="tab"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M9 3h6l5 18H4z" fill="#aab6cc"/><path d="M12 5v3M12 10v3M12 15v4" stroke="#1B2A3D" stroke-width="1.7" stroke-linecap="round"/></svg><span>Улицы</span><i>2</i></div></div><div class="cards"><button class="card" data-t="road"><svg viewBox="0 0 100 48" preserveAspectRatio="xMidYMid slice"><rect width="100" height="48" fill="#7f9c52"/><rect y="5" width="100" height="38" fill="#b7ac92"/><rect y="5.5" width="100" height="37" fill="#e9e0cb"/><rect y="8.5" width="100" height="31" fill="#9dba6b"/><rect y="11" width="100" height="26" fill="#d6ccb4"/><rect y="12" width="100" height="24" fill="#625a58"/><rect y="22.7" width="100" height=".7" fill="#e8b93c"/><rect y="24.6" width="100" height=".7" fill="#e8b93c"/></svg><b>Дорога</b><span>с газоном</span><i class="pr"></i></button><button class="card" data-t="st"><svg viewBox="0 0 100 48" preserveAspectRatio="xMidYMid slice"><rect width="100" height="48" fill="#7f9c52"/><rect y="4.5" width="100" height="39" fill="#bdb299"/><rect y="5" width="100" height="38" fill="#ddd4bf"/><rect y="10.8" width="100" height="26.4" fill="#bdb299"/><rect y="11" width="100" height="26" fill="#d6ccb4"/><rect y="12" width="100" height="24" fill="#625a58"/><rect y="22.7" width="100" height=".7" fill="#e8b93c"/><rect y="24.6" width="100" height=".7" fill="#e8b93c"/></svg><b>Улица</b><span>с тротуаром</span><i class="pr"></i></button></div></div><div id="bar"><button id="b-road" aria-label="Дороги"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M9 3h6l5 18H4z" fill="#aab6cc"/><path d="M12 5v3M12 10v3M12 15v4" stroke="#1B2A3D" stroke-width="1.7" stroke-linecap="round"/></svg></button><button id="b-erase" aria-label="Снос"><svg viewBox="0 0 32 24" width="36" height="27"><rect x="8" y="15" width="19" height="7" rx="3.5" fill="#2a2f3a"/><rect x="11" y="8" width="12" height="8" rx="1.5" fill="#f2b632"/><rect x="16" y="3" width="7" height="6" rx="1" fill="#f2b632"/><rect x="17.5" y="4.5" width="3.5" height="3" fill="#bfe0ff"/><rect x="6" y="11" width="6" height="2" fill="#d99a1b"/><path d="M2 6h4v12H2z" fill="#f2b632" stroke="#b9791a" stroke-width=".8"/></svg></button></div>
+<div id="menu"><h1>🏙 Мой город<small>Построй дороги и мосты</small></h1><div class="mc"><div id="m1"><button class="big" id="play">▶ Начать игру</button><button class="big" id="newb">🌍 Создать мир</button></div>
+<div id="m2" hidden><canvas id="mm" width="260" height="260"></canvas><div class="row"><b>Мир №</b><input id="sin" inputmode="numeric" maxlength="9"></div>
+<div class="row"><b>Изгибы</b><span class="chips" data-k="r"><button class="on">🎲</button><button>Прямая</button><button>Извилистая</button></span></div>
+<div class="row"><b>Русло</b><span class="chips" data-k="w"><button class="on">🎲</button><button>Узкая</button><button>Широкая</button><button>Двойная</button></span></div>
+<div class="row"><b>Леса</b><span class="chips" data-k="f"><button class="on">🎲</button><button>Редкие</button><button>Средние</button><button>Густые</button></span></div>
+<div class="row"><button id="back">←</button><button id="dice">🎲 Другой</button><button id="go">✔ Играть</button></div></div></div></div><div id="load">Создаю мир…</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const T=THREE;let seed=7;
+const rnd=()=>(seed=seed*16807%2147483647)/2147483647,RR=(a,b)=>a+rnd()*(b-a);
+const ren=new T.WebGLRenderer({antialias:true});
+ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.setClearColor(0xb9cdd6);const ce=console.error.bind(console);console.error=(...a)=>{ce(...a);const d=document.getElementById('err');d.style.display='block';d.textContent+=a.join(' ').slice(0,400)+'\n'};addEventListener('error',e=>console.error(e.message,e.lineno));
+document.body.appendChild(ren.domElement);
+const scene=new T.Scene();scene.fog=new T.Fog(0xb9cdd6,120,900);
+const cam=new T.PerspectiveCamera(45,1,.5,2500);
+
+// ---------- небо ----------
+const sky=(()=>{const g=new T.SphereGeometry(1200,24,12),p=g.attributes.position,c=[],a=new T.Color(0x7aa3d0),b=new T.Color(0xb9cdd6),t=new T.Color();
+for(let i=0;i<p.count;i++){t.copy(b).lerp(a,Math.pow(Math.max(0,p.getY(i)/1200),.6));c.push(t.r,t.g,t.b)}
+g.setAttribute('color',new T.Float32BufferAttribute(c,3));
+const m=new T.Mesh(g,new T.MeshBasicMaterial({vertexColors:true,side:T.BackSide,fog:false,depthWrite:false}));scene.add(m);return m})();
+scene.add(new T.HemisphereLight(0xf4f8ff,0x9db36a,.7));
+const sun=new T.DirectionalLight(0xfff0d0,.5);sun.position.set(-40,90,30);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.0006;sun.shadow.normalBias=.4;sun.shadow.camera.near=10;sun.shadow.camera.far=400;scene.add(sun,sun.target);
+
+// ---------- утилиты ----------
+const Q=new T.Quaternion(),E=new T.Euler(),V=new T.Vector3(),S3=new T.Vector3();
+const mat=(x,y,z,sx,sy,sz,ry=0,rx=0,rz=0)=>new T.Matrix4().compose(V.set(x,y,z),Q.setFromEuler(E.set(rx,ry,rz)),S3.set(sx,sy,sz));
+function build(ps,k){const P=[],C=[],N=[];
+for(const o of ps){let sg=o.g;if((k>1||LOW)&&sg===ICO)sg=ICOL;const g=sg.index?sg.toNonIndexed():sg.clone();const a0=g.attributes.position,yr=o.yr||[-1,1],y0=[];for(let i=0;i<a0.count;i++)y0.push((a0.getY(i)-yr[0])/(yr[1]-yr[0]));
+g.applyMatrix4(mat(...o.p,o.s[0]*k,o.s[1]*k,o.s[2]*k,o.ry||0,o.rx||0,o.rz||0));
+const a=g.attributes.position,nn=g.attributes.normal,lo=o.ao||1,c=new T.Color(o.col);
+for(let i=0;i<a.count;i++){const f=o.ao?lo+(1.08-lo)*y0[i]:1;P.push(a.getX(i),a.getY(i),a.getZ(i));N.push(nn.getX(i),nn.getY(i),nn.getZ(i));C.push(c.r*f,c.g*f,c.b*f)}}
+const G=new T.BufferGeometry();G.setAttribute('position',new T.Float32BufferAttribute(P,3));
+G.setAttribute('color',new T.Float32BufferAttribute(C,3));G.setAttribute('normal',new T.Float32BufferAttribute(N,3));return G}
+const kit=ps=>[build(ps,1),build(ps,1.07)];
+const NAT=[],ZERO=new T.Matrix4().makeScale(0,0,0);
+const OUT=new T.MeshBasicMaterial({color:0x1c2813,side:T.BackSide}),LM=new T.MeshLambertMaterial({vertexColors:true});
+function inst(G,O,arr,M,sh){if(!arr.length)return;const m=new T.InstancedMesh(G,M||LM,arr.length),tn=new T.Color();m.castShadow=m.receiveShadow=!!sh;
+arr.forEach((x,i)=>{m.setMatrixAt(i,x);if(!M){const v=RR(.88,1.1);m.setColorAt(i,tn.setRGB(v*RR(.96,1.04),v,v*RR(.9,1.04)))}});m.frustumCulled=false;WG.add(m);NAT.push([m,arr]);
+if(O){const o=new T.InstancedMesh(O,OUT,arr.length);o.instanceMatrix=m.instanceMatrix;o.frustumCulled=false;WG.add(o)}}
+
+// ---------- трава ----------
+function grassTex(){const c=document.createElement('canvas');c.width=c.height=1024;const g=c.getContext('2d');g.scale(2,2);
+g.fillStyle='#8aa857';g.fillRect(0,0,512,512);
+const cols=['#96b360','#7f9d4e','#93ae5c','#86a354','#a0b96a'];
+for(let i=0;i<260;i++){const x=rnd()*512,y=rnd()*512,r=RR(20,70);g.fillStyle=cols[i%5];g.globalAlpha=.16;
+for(const dx of[-512,0,512])for(const dy of[-512,0,512]){g.beginPath();g.arc(x+dx,y+dy,r,0,7);g.fill()}}
+g.globalAlpha=.55;g.lineWidth=.7;
+for(let i=0;i<7000;i++){const x=rnd()*512,y=rnd()*512;g.strokeStyle=rnd()<.5?'#7c9a4b':'#a0bb69';g.beginPath();g.moveTo(x,y);g.lineTo(x+RR(-3,3),y+RR(2,6));g.stroke()}
+g.lineWidth=.8;g.globalAlpha=.7;for(let i=0;i<500;i++){const x=rnd()*500+6,y=rnd()*500+8;g.strokeStyle=rnd()<.5?'#6f8f42':'#b2c978';g.beginPath();g.moveTo(x-2,y-4);g.lineTo(x,y);g.lineTo(x+2,y-5);g.stroke()}
+const t=new T.CanvasTexture(c);t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=ren.capabilities.getMaxAnisotropy();return t}
+// ---------- мир: общие данные (наполняет genWorld) ----------
+let WG=null,RP=[],CH=[],RB={},HP=[0,0,0],RW=1,RT=20,LOW=0,WP=[],RN='',FN='';
+const GT=grassTex();GT.repeat.set(150,150);
+// расстояние до реки в «ширинах» русла (не больше 99). Точки лежат в ячейках 128×128 с числовым ключом; p.q = 1/ширина² считается заранее — так в разы быстрее
+const rbk=(p)=>((p.x>>7)+16)*64+(p.z>>7)+16;
+const dRiver=(x,z)=>{let m=9801;const a=x>>7,b=z>>7;for(let i=a-1;i<=a+1;i++)for(let j=b-1;j<=b+1;j++){const l=RB[(i+16)*64+j+16];if(l)for(let k=0;k<l.length;k++){const p=l[k],dx=x-p.x,dz=z-p.z,d=(dx*dx+dz*dz)*p.q;if(d<m)m=d}}return Math.sqrt(m)};
+// внутри барьера земля плоская; за барьером поднимаются холмы, вдоль реки — долина
+const hill=(x,z)=>{const k=Math.min(1,Math.max(0,(Math.max(Math.abs(x),Math.abs(z))-H*CS-24)/220));if(k<=0)return 0;
+const c=Math.min(1,Math.max(0,(Math.min(dRiver(x,z),50)-26)/24));
+return c*c*(3-2*c)*k*k*(3-2*k)*(30+16*Math.sin(x*.017+HP[0])*Math.cos(z*.021+HP[1])+10*Math.sin(x*.05+z*.04+HP[2]))};
+function ribbon(ch,w,y,M,uv,sa){const pos=[],uvs=[],idx=[];
+ch.forEach((p,i)=>{const a=ch[Math.max(0,i-1)],b=ch[Math.min(ch.length-1,i+1)];let tx=b.x-a.x,tz=b.z-a.z;const l=Math.hypot(tx,tz)||1;tx/=l;tz/=l;
+const ww=w*p.w,wl=ww*(1+sa*Math.sin(p.i*.017+1)),wr=ww*(1+sa*Math.sin(p.i*.013+4));
+pos.push(p.x-tz*wl,y,p.z+tx*wl,p.x+tz*wr,y,p.z-tx*wr);uvs.push(0,p.i*uv,1,p.i*uv);
+if(i<ch.length-1){const k=i*2;idx.push(k,k+2,k+1,k+1,k+2,k+3)}});
+const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));
+g.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));g.setIndex(idx);g.computeVertexNormals();
+WG.add(new T.Mesh(g,M))}
+const wtex=(()=>{const c=document.createElement('canvas');c.width=128;c.height=256;const g=c.getContext('2d');
+const gr=g.createLinearGradient(0,0,128,0);[[0,'#7db0cc'],[.18,'#4f86ad'],[.5,'#4a7ea8'],[.82,'#4f86ad'],[1,'#7db0cc']].forEach(s=>gr.addColorStop(...s));
+g.fillStyle=gr;g.fillRect(0,0,128,256);g.strokeStyle='#cfe6f2';g.lineWidth=3;g.lineCap='round';
+for(let i=0;i<9;i++){const x=RR(20,108),y=RR(0,256),l=RR(8,18);for(const o of[0,-256]){g.beginPath();g.moveTo(x,y+o);g.lineTo(x+3,y+o+l);g.stroke()}}
+const t=new T.CanvasTexture(c);t.wrapS=t.wrapT=T.RepeatWrapping;return t})();
+// ---------- модели ----------
+const ICO=new T.IcosahedronGeometry(1,2),ICOL=new T.IcosahedronGeometry(1,1),ICO0=new T.IcosahedronGeometry(1,0),CYL=new T.CylinderGeometry(.6,1,1,10),CONE=new T.ConeGeometry(1,1,12);
+const PAL=['#33501f','#3f5d24','#4d6c2a','#5d7d33'],BR='#5b3622';
+function broadleaf(pal=PAL){const ps=[{g:CYL,col:BR,p:[0,2,0],s:[.62,4.4,.62],ao:.6,yr:[-.5,.5]}];
+for(let b=0;b<3;b++){const s=b%2?1:-1,l=RR(2.2,3);ps.push({g:CYL,col:BR,p:[s*.9,4.3+b*.3,(b-1)*.5],s:[.3,l,.3],rz:-s*RR(.4,.7),rx:(b-1)*.35})}
+const n=6+(rnd()*3|0);
+for(let i=0;i<n;i++){const a=rnd()*6.28,r=RR(0,2.1),y=RR(5,8),k=RR(1.5,2.4),ci=Math.max(0,Math.min(3,Math.floor((y-5)/3*4+RR(-1,1))));
+ps.push({g:ICO,col:pal[ci],p:[Math.cos(a)*r,y,Math.sin(a)*r],s:[k,k*.85,k],ry:rnd()*6,ao:.72})}return ps}
+function pine(){const ps=[{g:CYL,col:'#4f3220',p:[0,.8,0],s:[.45,1.8,.45]}],cs=['#2c4527','#335029','#3b5a2d'];
+for(let i=0;i<5;i++){const r=3.3-i*.55;ps.push({g:CONE,col:cs[i%3],p:[0,2.2+i*1.6,0],s:[r,3,r],ao:.68,yr:[-.5,.5]})}return ps}
+// ========== ГЕНЕРАТОРЫ МИРА: реки и леса ==========
+// У каждого свой генератор случайных чисел (от номера мира): выбор леса не меняет реку и наоборот.
+const mixS=(a,b)=>{let h=Math.imul(a^0x9e3779b9,0x85ebca6b)^Math.imul((b|0)+0x7f4a7c15,0xc2b2ae35);h^=h>>>15;h=Math.imul(h,0x2c1b3c6d);h^=h>>>12;h=Math.imul(h,0x297a2d39);h^=h>>>15;return(h>>>0)%2147483646+1};
+const mkRng=(sd,salt)=>{let s=mixS(sd|0,salt);const f=()=>(s=s*16807%2147483647)/2147483647;for(let i=0;i<8;i++)f();return f};
+
+// ---------- РЕКИ ----------
+// Русло — «шагающая» линия: идёт к цели с ограниченным радиусом поворота, извилины — плавные качания курса.
+// Развилки, рукава, острова, притоки — операции над готовой рекой. Точка русла: {x,z,w,i}: w — ширина, i — индекс течения.
+function genRivers(sd,o,E){
+const f=mkRng(sd,101),rr=(a,b)=>a+f()*(b-a),Z=E+650,ST=3,TAU=6.2832,
+P=(s,t)=>[[Z,t],[-Z,t],[t,Z],[t,-Z]][s],
+inA=(p,m)=>Math.abs(p.x)<E-m&&Math.abs(p.z)<E-m,
+wr=a=>{while(a>Math.PI)a-=TAU;while(a<-Math.PI)a+=TAU;return a},
+cl=(v,a,b)=>v<a?a:v>b?b:v,sm=u=>{u=cl(u,0,1);return u*u*(3-2*u)},sgn=()=>f()<.5?1:-1;
+// класс реки: 1 узкая, 2 широкая, 3 двойная (семейство развилок), 4 обычная
+let cls=o.w;if(!cls){const r=f();cls=r<.3?4:r<.45?1:r<.6?2:3}
+const W0=[0,rr(.58,.78),rr(1.3,1.5),rr(1.0,1.3),rr(.85,1.2)][cls],
+amp=o.r==1?rr(25,70):o.r==2?rr(150,260):rr(30,230),
+KS=[['y',24],['t',12],['asym',14],['delta',12],['casc',8],['isl',12],['chain',6],['x',12]],
+pickKind=()=>{let t=KS.reduce((a,k)=>a+k[1],0)*f();for(const k of KS)if((t-=k[1])<0)return k[0];return'y'},
+kind0=cls==3?pickKind():'single';
+let net,grow=0;
+const mkch=(p,x)=>{const c=Object.assign({p},x);net.ch.push(c);return c};
+// параметры извилин: три волны курса — большая, средняя, мелкая
+const meander=sc=>{const a=amp*sc,l0=Math.max(rr(750,1400),a*4.83),l1=rr(300,560),l2=rr(120,230);
+return{A:[Math.min(1.3,a*TAU/l0),Math.min(.35,a*.25*TAU/l1),rr(.035,.1)*(.5+.5*cl(a/150,0,1))],k:[TAU/l0,TAU/l1,TAU/l2],ph:[rr(0,TAU),rr(0,TAU),rr(0,TAU)]}};
+// шаг за шагом: курс подруливает к ближайшей цели (последняя цель «липкая»), поверх — качание курса
+const walk=(x,z,h,wps,M,rmin,ramp)=>{const pts=[{x,z}],TR=ST/rmin,last=wps.length-1;let wi=0;
+for(let n=0,s=0;n<1600;n++){
+while(wi<last){const w=wps[wi],dx=w[0]-x,dz=w[1]-z,d=Math.hypot(dx,dz);if(d<70||(d<rmin*2.5&&dx*Math.cos(h)+dz*Math.sin(h)<0))wi++;else break}
+const w=wps[wi];h+=cl(wr(Math.atan2(w[1]-z,w[0]-x)-h),-TR,TR);
+s+=ST;const e=Math.min(1,s/ramp),hn=e*(M.A[0]*Math.cos(s*M.k[0]+M.ph[0])+M.A[1]*Math.cos(s*M.k[1]+M.ph[1])+M.A[2]*Math.cos(s*M.k[2]+M.ph[2]));
+x+=Math.cos(h+hn)*ST;z+=Math.sin(h+hn)*ST;pts.push({x,z});
+if(Math.abs(x)>=Z||Math.abs(z)>=Z)break}
+return pts};
+// главное русло: через весь мир (насквозь) или с поворотом (угол)
+const trunk=()=>{const s0=f()*4|0,A=P(s0,rr(-.7,.7)*E);let wps;
+if(f()<.66)wps=[P(s0^1,rr(-.7,.7)*E)];
+else{const s1=((s0>>1)^1)*2+(f()*2|0);wps=[[rr(-.4,.4)*E,rr(-.4,.4)*E],P(s1,rr(-.7,.7)*E)]}
+return walk(A[0],A[1],Math.atan2(wps[0][1]-A[1],wps[0][0]-A[0]),wps,meander(1),rr(140,230),200)};
+// ширина вдоль русла: плавно меняется; у ветки сначала равна ширине родителя и плавно переходит к своей
+const setW=(c,wS,wT,lt,sg,md,lo)=>{const n=c.p.length,wa=rr(0,TAU),wb=rr(0,TAU);
+c.p.forEach((p,k)=>{const m=1+md*(.22*Math.sin(p.i*.011+wa)+.14*Math.sin(p.i*.027+wb));let w;
+if(wS==null)w=wT*m*(1+grow*(k/Math.max(1,n-1)-.5));
+else{const d=sg>0?k*ST:(n-1-k)*ST,e=sm(d/lt);w=wS*(1-e)+wT*m*e}
+p.w=cl(w,lo,1.7)})};
+const rew=(c,k,ratio)=>setW({p:c.p.slice(k)},c.p[k].w,c.p[k].w*ratio,rr(120,220),1,1,.55);
+const widen=(c,k1,k2,fac)=>c.p.forEach((p,i)=>{p.w=cl(p.w*(1+(fac-1)*sm((i-k1+12)/24)*(1-sm((i-k2+12)/24))),.55,1.7)});
+const range=(c,m)=>{let a=-1,b=-1;c.p.forEach((p,i)=>{if(inA(p,m)){if(a<0)a=i;b=i}});return[a,b]};
+const pickK=(c,lo,hi,m=100)=>{const[a,b]=range(c,m);return a<0||b-a<90?-1:Math.round(a+(b-a)*rr(lo,hi))};
+// ветка от точки k русла c: sg=+1 — уходит вниз по течению (рукав), sg=-1 — впадает (приток); ang — угол от русла
+const fork=(c,k,sg,ang,ratio,x)=>{x=x||{};const J=c.p[k],q=c.p[cl(k-sg*5,0,c.p.length-1)],h0=Math.atan2(J.z-q.z,J.x-q.x),hb=h0+ang,
+far=[J.x+Math.cos(hb)*5000,J.z+Math.sin(hb)*5000],pts=walk(J.x,J.z,h0,[far],meander(x.sc||.8),x.rmin||rr(120,200),x.ramp||150);
+pts.forEach((p,m)=>{p.i=J.i+sg*m});if(sg<0)pts.reverse();
+const ch=mkch(pts,{kid:1});setW(ch,J.w,ratio*J.w,x.lt||rr(110,200),sg,.8,.42);net.jz.push([J.x,J.z]);return ch};
+// остров: русло расходится на два рукава и сходится снова; возвращает продолжение русла
+const island=(c,a,n,Mo,as,cw)=>{const b=a+n,arm=[[],[]];
+for(let i=a;i<=b;i++){const p=c.p[i],q=c.p[Math.min(c.p.length-1,i+1)],r=c.p[Math.max(0,i-1)],l=Math.hypot(q.x-r.x,q.z-r.z)||1,nx=-(q.z-r.z)/l,nz=(q.x-r.x)/l,
+s=Math.sin(Math.PI*(i-a)/n),fa=Math.pow(Math.max(0,s),1.3),sw=Math.pow(Math.max(0,s),.7);
+[1,-1].forEach((sg,k)=>{const off=Mo*fa*(1+(k?as:-as))*sg;arm[k].push({x:p.x+nx*off,z:p.z+nz*off,w:Math.max(.42,p.w*(1-cw[k]*sw)),i:p.i})})}
+const post=mkch(c.p.slice(b));c.p.length=a+1;mkch(arm[0],{arm:1});mkch(arm[1],{arm:1});
+net.jz.push([c.p[a].x,c.p[a].z],[post.p[0].x,post.p[0].z]);return post};
+
+const tryBuild=kind=>{
+net={ch:[],jz:[],name:'Река',cn:0};
+const T0=mkch(trunk().map((q,i)=>({x:q.x,z:q.z,i})),{main:1});
+grow=kind=='single'&&f()<.45?rr(-.4,.4):0;
+setW(T0,null,W0,0,1,1,.55);
+if(cls==1)net.name='Узкая река';else if(cls==2)net.name='Широкая река';
+switch(kind){
+case'y':case't':{// Y-развилка: русло делится на два
+const k=pickK(T0,.28,.72);if(k<0)return 0;const big=kind=='t',s=sgn(),m=big?[.95,1.4]:[.22,.62],
+a1=s*rr(m[0],m[1]),a2=(!big&&f()<.15?s:-s)*rr(m[0],m[1]);if(Math.abs(a1-a2)<.42)return 0;
+T0.p.length=k+1;fork(T0,k,1,a1,rr(.62,.9));fork(T0,k,1,a2,rr(.5,.85));net.name=big?'Развилка «Т»':'Развилка Y';break}
+case'asym':{// рукав или приток отходит от основной реки
+const k=pickK(T0,.3,.7);if(k<0)return 0;const sg=f()<.5?1:-1;
+fork(T0,k,sg,sgn()*rr(.45,1.1),rr(.45,.75));rew(T0,k,sg>0?rr(.72,.92):rr(1.1,1.3));net.name=sg>0?'Боковой рукав':'Приток';break}
+case'delta':{// дельта: от русла отходят два рукава подряд — веер из трёх
+const k=pickK(T0,.22,.45);if(k<0)return 0;const k2=k+Math.round(rr(25,70));if(k2>=T0.p.length-40||!inA(T0.p[k2],90))return 0;const s=sgn();
+fork(T0,k,1,s*rr(.4,.7),rr(.55,.75));rew(T0,k,rr(.8,.95));
+fork(T0,k2,1,-s*rr(.35,.7),rr(.55,.8));rew(T0,k2,rr(.75,.92));net.name='Дельта';break}
+case'casc':{// каскад: развилка, а у рукавов — ещё развилки
+const k=pickK(T0,.18,.42);if(k<0)return 0;const s=sgn(),a1=s*rr(.3,.6),a2=-s*rr(.3,.6);
+T0.p.length=k+1;const kids=[[fork(T0,k,1,a1,rr(.7,.88)),a1],[fork(T0,k,1,a2,rr(.7,.88)),a2]];let n=0;
+for(const[c,a]of kids)if(f()<.85){const kk=Math.round(rr(70,150));if(kk<c.p.length-40&&inA(c.p[kk],80)){
+fork(c,kk,1,(f()<.6?Math.sign(a):-Math.sign(a))*rr(.3,.65),rr(.55,.8));rew(c,kk,rr(.7,.9));n++}}
+if(!n)return 0;net.name='Каскад развилок';break}
+case'isl':case'chain':{// остров или цепочка островов
+const nI=kind=='chain'?2+(f()<.5?1:0):1;let c=T0;
+for(let q=0;q<nI;q++){const[a0,b0]=range(c,80),n=Math.round(rr(70,150)),lo=a0+(q?25:15),hi=b0-n-12;if(a0<0||hi<lo){if(q)break;return 0}
+c=island(c,lo+Math.round(f()*(hi-lo)),n,rr(38,80)*Math.max(.9,W0),rr(0,.25),[rr(.25,.5),rr(.25,.5)])}
+net.name=kind=='chain'?'Цепь островов':'Остров';break}
+case'x':{// два русла сливаются в одно и снова расходятся
+const k1=pickK(T0,.22,.4);if(k1<0)return 0;const k2=k1+Math.round(rr(60,130));if(k2>=T0.p.length-40||!inA(T0.p[k2],90))return 0;const s=sgn();
+widen(T0,k1,k2,rr(1.15,1.35));fork(T0,k1,-1,s*rr(.5,1),rr(.65,.95));fork(T0,k2,1,-s*rr(.5,1),rr(.65,.95));rew(T0,k2,rr(.7,.9));net.name='Слияние и разделение';break}
+}
+// ручьи-притоки
+const nc=kind=='single'?(f()<.28?(f()<.35?2:1):0):(f()<.15?1:0);
+for(let q=0;q<nc;q++){const cs=net.ch.filter(c=>!c.arm&&c.p.length>150&&c.p.filter(p=>inA(p,60)).length>80);if(!cs.length)break;
+const c=cs[f()*cs.length|0],k=pickK(c,.12,.88,110);if(k<0)continue;const J=c.p[k];
+if(net.jz.some(z=>Math.hypot(z[0]-J.x,z[1]-J.z)<220))continue;
+const ck=fork(c,k,f()<.7?-1:1,sgn()*rr(.5,1.15),rr(.32,.5),{sc:.7});
+if(ck.p.filter(p=>inA(p,24)).length<30){net.ch.pop();net.jz.pop();continue}net.cn++}
+return valid(kind)};
+
+// проверка: достаточно реки в игровой зоне, нет острых изгибов и слипшихся русел
+const valid=kind=>{let tot=0;
+for(const c of net.ch){c.na=c.p.filter(p=>inA(p,24)).length;tot+=c.na;if(c.kid&&c.na<30)return 0}
+if(tot<(kind=='single'?130:210))return 0;
+for(const c of net.ch){const p=c.p;for(let i=3;i<p.length-3;i+=1){
+const a0=Math.atan2(p[i].z-p[i-3].z,p[i].x-p[i-3].x),a1=Math.atan2(p[i+3].z-p[i].z,p[i+3].x-p[i].x);if(Math.abs(wr(a1-a0))>.26)return 0}}
+const pts=[];net.ch.forEach((c,ci)=>c.p.forEach((p,i)=>{if(i%2==0)pts.push([p.x,p.z,ci,i])}));
+const G={},cs=48;
+for(const a of pts){const kx=Math.floor(a[0]/cs),kz=Math.floor(a[1]/cs);
+for(let i=kx-1;i<=kx+1;i++)for(let j=kz-1;j<=kz+1;j++){const l=G[i+','+j];if(l)for(const b of l){
+if(Math.hypot(a[0]-b[0],a[1]-b[1])>=46)continue;
+if(a[2]==b[2]&&Math.abs(a[3]-b[3])<80)continue;
+if(net.jz.some(z=>Math.hypot(z[0]-a[0],z[1]-a[1])<260&&Math.hypot(z[0]-b[0],z[1]-b[1])<260))continue;
+return 0}}
+const k=kx+','+kz;(G[k]||(G[k]=[])).push(a)}
+return 1};
+const fin=()=>{const CH=net.ch.map(c=>c.p).filter(p=>p.length>1);
+return{CH,RP:[].concat(...CH),name:net.name+(net.cn?(net.cn>1?' + ручьи':' + ручей'):''),flow:f()<.5?1:-1}};
+for(let att=0;att<120;att++){
+const kind=att<55?kind0:att<90?(cls==3?'y':'single'):'single';
+if(tryBuild(kind)){const r=fin();r.att=att;return r}}
+// запасной вариант: плавная река через весь мир
+net={ch:[],jz:[],name:'Река',cn:0};const pts=[];for(let x=-Z;x<=Z;x+=ST)pts.push({x,z:Math.sin(x*.004)*60,i:pts.length});
+setW(mkch(pts),null,.9,0,1,1,.55);const r=fin();r.att=999;return r}
+
+// ---------- ЛЕСА ----------
+// Поле «лесистости» собирается из случайного набора слоёв: шум с искажением, рощи, полосы, кольцо по краю, центр, берега рек, поляны.
+// Все слои переводятся в «ранги» — лес занимает ровно заданную долю карты, а его форма каждый раз своя.
+function genForest(sd,o,E,RP){
+const f=mkRng(sd,202),rr=(a,b)=>a+f()*(b-a),TAU=6.2832,
+D=o.f?o.f-1:(f()<.3?0:f()<.6?1:2),
+M=[{cv:[.04,.085],nt:260,dm:12,ln:[50,90]},{cv:[.1,.17],nt:620,dm:11,ln:[30,60]},{cv:[.2,.3],nt:1100,dm:9.5,ln:[8,20]}][D],
+LAT=new Float32Array(4096);for(let i=0;i<4096;i++)LAT[i]=f();
+const vn=(x,z)=>{const xi=Math.floor(x),zi=Math.floor(z),a=x-xi,b=z-zi,u=a*a*(3-2*a),v=b*b*(3-2*b),g=(i,j)=>LAT[((i&63)<<6)|(j&63)];
+return(g(xi,zi)*(1-u)+g(xi+1,zi)*u)*(1-v)+(g(xi,zi+1)*(1-u)+g(xi+1,zi+1)*u)*v};
+const fbm=(lam,oct)=>{const R=[];for(let i=0;i<oct;i++){const a=rr(0,TAU);R.push([Math.cos(a),Math.sin(a),rr(0,60),rr(0,60)])}
+return(x,z)=>{let s=0,t=0,a=1,k=1/lam;for(let i=0;i<oct;i++){const r=R[i];s+=a*vn((x*r[0]-z*r[1])*k+r[2],(x*r[1]+z*r[0])*k+r[3]);t+=a;a*=.5;k*=2.03}return s/t}};
+const N=96,X0=-1400,CZ=2800/(N-1),nd=i=>X0+i*CZ,ins=(i,j)=>Math.abs(nd(i))<E&&Math.abs(nd(j))<E;
+const grid=fn=>{const A=new Float32Array(N*N);for(let j=0;j<N;j++)for(let i=0;i<N;i++)A[j*N+i]=fn(nd(i),nd(j));return A};
+const norm=A=>{let s=0,s2=0,n=0;for(let j=0;j<N;j++)for(let i=0;i<N;i++)if(ins(i,j)){const v=A[j*N+i];s+=v;s2+=v*v;n++}
+const m=s/n,sd=Math.sqrt(Math.max(1e-9,s2/n-m*m));for(let i=0;i<A.length;i++)A[i]=(A[i]-m)/sd;return A};
+const rank=A=>{const s=[];for(let j=0;j<N;j++)for(let i=0;i<N;i++)if(ins(i,j))s.push(A[j*N+i]);s.sort((a,b)=>a-b);const n=s.length;
+return A.map(v=>{let lo=0,hi=n;while(lo<hi){const m=(lo+hi)>>1;if(s[m]<v)lo=m+1;else hi=m}return lo/n})};
+const look=A=>(x,z)=>{let u=(x-X0)/CZ,v=(z-X0)/CZ;u=u<0?0:u>N-1.001?N-1.001:u;v=v<0?0:v>N-1.001?N-1.001:v;
+const i=u|0,j=v|0,a=u-i,b=v-j,k=j*N+i;return(A[k]*(1-a)+A[k+1]*a)*(1-b)+(A[k+N]*(1-a)+A[k+N+1]*a)*b};
+// слои
+const Wt={n:rr(.5,1.2),b:f()<.6?rr(.6,1.4):0,t:f()<.35?rr(.6,1.2):0,r:f()<.22?rr(.5,1.1):0,c:f()<.14?rr(.5,1):0,v:f()<.5?rr(.4,1.2):0};
+if(f()<.22)Wt.n*=.3;
+const sum=new Float32Array(N*N),addL=(A,w)=>{if(w>0)for(let i=0;i<A.length;i++)sum[i]+=A[i]*w};
+{const lam=rr(240,620),wp=rr(.15,.9)*lam,fa=fbm(lam,3+(f()*2|0)),f1=fbm(lam*1.3,2),f2=fbm(lam*1.3,2);
+addL(norm(grid((x,z)=>fa(x+wp*(f1(x,z)-.5)*2,z+wp*(f2(x+91,z-57)-.5)*2))),Wt.n)}
+if(Wt.b){const bl=[];for(let i=0,n=Math.round(rr(3,9));i<n;i++){const a=rr(0,TAU);bl.push({x:rr(-1.1,1.1)*E,z:rr(-1.1,1.1)*E,rx:rr(70,240),rz:rr(50,190),c:Math.cos(a),s:Math.sin(a),w:rr(.7,1.3)})}
+addL(norm(grid((x,z)=>{let v=0;for(const b of bl){const u=((x-b.x)*b.c+(z-b.z)*b.s)/b.rx,w=(-(x-b.x)*b.s+(z-b.z)*b.c)/b.rz;v=Math.max(v,b.w*Math.exp(-(u*u+w*w)))}return v})),Wt.b)}
+if(Wt.t){const bt=[];for(let i=0,n=1+(f()*3|0);i<n;i++){const a=rr(0,TAU);bt.push({c:Math.cos(a),s:Math.sin(a),o:rr(-.8,.8)*E,sg:rr(35,110),ph:rr(0,60),fq:rr(.0025,.006)})}
+addL(norm(grid((x,z)=>{let v=0;for(const b of bt){const pe=-x*b.s+z*b.c-b.o,al=x*b.c+z*b.s;v=Math.max(v,Math.exp(-(pe*pe)/(b.sg*b.sg))*(.45+.9*vn(al*b.fq+b.ph,b.ph)))}return v})),Wt.t)}
+if(Wt.r){const r0=rr(.55,.95)*E,rs=rr(.15,.35)*E;addL(norm(grid((x,z)=>{const d=(Math.hypot(x,z)-r0)/rs;return Math.exp(-d*d)})),Wt.r)}
+if(Wt.c){const cs=rr(.2,.4)*E;addL(norm(grid((x,z)=>{const d=Math.hypot(x,z)/cs;return Math.exp(-d*d)})),Wt.c)}
+if(Wt.v){const d0=rr(40,120),ds=rr(40,110),DR=new Float32Array(N*N).fill(400);
+for(let q=0;q<RP.length;q+=2){const p=RP[q],ci=Math.round((p.x-X0)/CZ),cj=Math.round((p.z-X0)/CZ);
+for(let j=Math.max(0,cj-12);j<=Math.min(N-1,cj+12);j++)for(let i=Math.max(0,ci-12);i<=Math.min(N-1,ci+12);i++){const d=Math.hypot(nd(i)-p.x,nd(j)-p.z);if(d<DR[j*N+i])DR[j*N+i]=d}}
+addL(norm(grid((x,z)=>{const d=(DR[Math.round((z-X0)/CZ)*N+Math.round((x-X0)/CZ)]-d0)/ds;return Math.exp(-d*d)})),Wt.v)}
+// поляны (в густом лесу их больше)
+const cn=D==2?Math.round(rr(2,6)):D==1?Math.round(rr(0,3)):0,cr=[];for(let i=0;i<cn;i++)cr.push({x:rr(-.9,.9)*E,z:rr(-.9,.9)*E,r:rr(45,130),w:rr(1.2,2.6)});
+if(cr.length){const A=grid((x,z)=>{let v=0;for(const c of cr){const d=((x-c.x)*(x-c.x)+(z-c.z)*(z-c.z))/(c.r*c.r);v+=c.w*Math.exp(-d)}return v});for(let i=0;i<A.length;i++)sum[i]-=A[i]}
+const U=look(rank(sum)),cov=rr(M.cv[0],M.cv[1]),thr=1-cov;
+// состав: хвойные / лиственные / особые (осень, светлые, цветущие, тёмные)
+const spk=look(rank(grid(fbm(rr(300,700),3)))),pc=rr(.05,.7),sc=f()<.75?rr(.1,.3):0,
+SPN=[['осенние','#9a4a1c','#b8601f','#d67f26','#eaa23a'],['светлые','#6a8f2a','#80a73a','#98bf4d','#b1d466'],['цветущие','#c9708f','#dd89a6','#eaa2bb','#f3b9cb'],['тёмные','#2a4a1c','#33591f','#3d6a26','#497d2e']],
+spi=f()*4|0;
+return{fd:(x,z)=>U(x,z)-thr,dep:(x,z)=>(U(x,z)-thr)/cov,spk,pc,sc,sp:sc?SPN[spi].slice(1):null,spn:sc?SPN[spi][0]:'',cov,D,
+nt:Math.round(M.nt*rr(.85,1.12)),dm:M.dm,ln:Math.round(rr(M.ln[0],M.ln[1])),
+name:['Редкие','Средние','Густые'][D]+' '+Math.round(cov*100)+'%'}}
+
+function genWorld(sd,o){
+if(WG){scene.remove(WG);WG.traverse(m=>{m.geometry&&m.geometry.dispose();m.dispose&&m.dispose()})}
+WG=new T.Group();scene.add(WG);NAT.length=0;seed=sd;for(let i=0;i<9;i++)rnd();LOW=1;
+const E=H*CS;
+HP=[rnd()*6,rnd()*6,rnd()*6];RW=1;RT=20;
+// реки: сеть русел (развилки, рукава, острова, притоки), у неё свой генератор случайных чисел — см. genRivers
+const RV=genRivers(sd,o,E);CH=RV.CH;RP=RV.RP;RN=RV.name;
+RB={};CH.forEach(c=>c.forEach(p=>{p.q=1/(p.w*p.w);const k=rbk(p);(RB[k]||(RB[k]=[])).push(p)}));
+// леса: своё поле лесистости на каждый мир, тоже со своим генератором — см. genForest
+const FR=genForest(sd,o,E,RP);FN=FR.name;
+const pm=(c,f,x)=>new T.MeshLambertMaterial(Object.assign({color:c,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:f,polygonOffsetUnits:f},x));
+const m1=pm(0xd8b987,-1),m2=pm(0x92c2d0,-2),m3=pm(0xffffff,-3,{map:wtex}),uu=.0855*RV.flow;
+CH.forEach((c,ci)=>{const dy=ci*.0012;ribbon(c,12.5,.06+dy,m1,.05,.18);ribbon(c,10.6,.08+dy,m2,.05,0);ribbon(c,9,.1+dy,m3,uu,0)});// dy: русла в разных слоях, чтобы в местах стыка не мерцала вода
+// земля: 3000×3000, внутри барьера плоская, снаружи холмы
+{const g=new T.PlaneGeometry(3000,3000,240,240);g.rotateX(-Math.PI/2);const p=g.attributes.position,c=[];
+for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i),h=hill(x,z),k=Math.min(1,h/30),fl=Math.max(0,Math.min(1,FR.dep(x,z)*1.6)),n=1+.07*Math.sin(x*.045+HP[0])*Math.cos(z*.05+HP[1])+.05*Math.sin(x*.13+z*.09);p.setY(i,h);c.push(n*(1-.16*k-.07*fl),n*(1-.08*k-.04*fl),n*(1-.3*k-.08*fl))}
+g.setAttribute('color',new T.Float32BufferAttribute(c,3));g.computeVertexNormals();
+const gm=new T.Mesh(g,new T.MeshLambertMaterial({map:GT,vertexColors:true}));gm.receiveShadow=true;WG.add(gm)}
+// барьер: каменная стена с башенками, в месте реки — проход
+const wl=[],cp=[],pi=[];
+for(let s=0;s<4;s++){const X=s>1,F=s%2?-E-2:E+2;
+for(let k=0;k<NC;k++){const t=-E+(k+.5)*CS,x=X?t:F,z=X?F:t;if(dRiver(x,z)>RT+6){wl.push(mat(x,0,z,X?CS+.3:1.8,3.4,X?1.8:CS+.3));cp.push(mat(x,3.4,z,X?CS+.8:2.8,.7,X?2.8:CS+.8))}}
+for(let k=0;k<=NC;k+=4){const t=-E+k*CS,x=X?t:F,z=X?F:t;if(dRiver(x,z)>RT+2)pi.push(mat(x,0,z,1,1,1))}}
+inst(build([{g:BX,col:'#aaa293',p:[0,.5,0],s:[1,1,1]}],1),null,wl,0,1);inst(build([{g:BX,col:'#6e675d',p:[0,.5,0],s:[1,1,1]}],1),null,cp,0,1);
+inst(build([{g:BX,col:'#9b9385',p:[0,3.5,0],s:[3.2,7,3.2]},{g:BX,col:'#5d6770',p:[0,7.4,0],s:[4.2,.9,4.2]}],1),null,pi,0,1);
+// дальние горы кольцом
+const mn=[];for(let i=0;i<54;i++){const a=i/54*6.2832+RR(-.05,.05),r=RR(1120,1340),x=Math.cos(a)*r,z=Math.sin(a)*r,s=RR(130,260);mn.push(mat(x,hill(x,z)-12,z,s,RR(110,260),s*RR(.8,1.2),rnd()*6))}
+inst(build([{g:CONE,col:'#6b8691',p:[0,.5,0],s:[1,1,1]}],1),null,mn);
+const farP=build([{g:CYL,col:'#4a3020',p:[0,1,0],s:[.6,2,.6]},{g:CONE,col:'#2d4528',p:[0,4.5,0],s:[3.4,7,3.4]},{g:CONE,col:'#35522c',p:[0,8.5,0],s:[2.6,6,2.6]}],1);
+const farB=build([{g:CYL,col:BR,p:[0,2,0],s:[.7,4,.7]},{g:ICO0,col:'#3a5a22',p:[0,6,0],s:[3.2,2.8,3.2]},{g:ICO0,col:'#4d6c2a',p:[1.3,7.2,.5],s:[2.4,2.2,2.4]}],1);
+const fp=[],fb=[];
+// фоновая карта за барьером: дешёвый лес
+for(let i=0;i<16000&&fp.length+fb.length<3300;i++){const x=RR(-1400,1400),z=RR(-1400,1400),d=Math.max(Math.abs(x),Math.abs(z))-E;if(d<26||dRiver(x,z)<RT||(FR.fd(x,z)<-.12&&rnd()>.1))continue;const s=RR(1.3,2.6)*(1+d/600);(rnd()<.62?fp:fb).push(mat(x,hill(x,z),z,s,s*RR(.9,1.3),s,rnd()*6))}
+inst(farP,null,fp);inst(farB,null,fb);NAT.length=0;
+const kinds=[0,1,2].map(()=>kit(broadleaf())).concat([0,1].map(()=>kit(pine())));if(FR.sp)kinds.push(kit(broadleaf(FR.sp)));// 5-й вид: осенние / светлые / цветущие / тёмные кроны
+const lists=kinds.map(()=>[]),sh=[],pts=[];
+const cell={},ok=(x,z,d)=>{if(dRiver(x,z)<RT-1)return 0;const a=Math.floor(x/24),b=Math.floor(z/24);for(let i=a-1;i<=a+1;i++)for(let j=b-1;j<=b+1;j++){const l=cell[i+','+j];if(l)for(const q of l)if(Math.hypot(q[0]-x,q[1]-z)<d)return 0}return 1},
+add=(x,z)=>{const k=Math.floor(x/24)+','+Math.floor(z/24);(cell[k]||(cell[k]=[])).push([x,z]);pts.push([x,z])};
+// порода зависит от места: сплошные хвойные рощи, лиственные, участки особой породы
+function plant(x,z){const u=FR.spk(x,z);let k;
+if(u<FR.pc&&rnd()<.9)k=3+(rnd()*2|0);else if(FR.sp&&u>1-FR.sc&&rnd()<.88)k=5;else k=rnd()*3|0;
+const s=RR(.8,1.35);lists[k].push(mat(x,0,z,s,s*RR(.9,1.15),s,rnd()*6.28));add(x,z);sh.push(mat(x+1.2,.12,z+.9,3.2*s,1,3*s))}
+const sst=(a,b,v)=>{v=Math.max(0,Math.min(1,(v-a)/(b-a)));return v*v*(3-2*v)};
+// лес: чем глубже в чащу, тем чаще посадка и теснее деревья; по краям — реже
+for(let i=0,n=0;i<60000&&n<FR.nt;i++){const x=RR(-E+8,E-8),z=RR(-E+8,E-8),d=FR.dep(x,z);if(d<=0||rnd()>sst(0,.12,d)*.92)continue;
+if(ok(x,z,FR.dm+(1-sst(0,.3,d))*6)){plant(x,z);n++}}
+// одинокие деревья на лугах
+for(let i=0,n=0;i<6000&&n<FR.ln;i++){const x=RR(-E+8,E-8),z=RR(-E+8,E-8);if(FR.dep(x,z)>0)continue;if(ok(x,z,24)){plant(x,z);n++}}
+const rg=[1,2].map(j=>{const g=new T.DodecahedronGeometry(1,1),p=g.attributes.position;
+for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),f=1+.2*Math.sin(x*7.3+y*4.1+z*5.9+j*3);p.setXYZ(i,x*f,y*f,z*f)}g.computeVertexNormals();return g});
+const rk=[['#b5998a',0],['#8d867e',1]].map(([c,j])=>kit([{g:rg[j],col:c,p:[0,0,0],s:[1.6,.9,1.1]}])),rl=[[],[]];
+for(let i=0,n=0;i<1500&&n<90;i++){const x=RR(-E,E),z=RR(-E,E);if(!ok(x,z,5))continue;n++;const s=RR(.7,1.8);rl[i%2].push(mat(x,.2*s,z,s,s,s,rnd()*6.28));add(x,z);sh.push(mat(x+.8,.12,z+.6,2*s,1,1.6*s))}
+const bush=cols=>kit([0,1,2,3].map(i=>({g:ICO,col:cols[i%cols.length],p:[RR(-.9,.9),.7+i*.1,RR(-.9,.9)],s:[1.1,.85,1.1],ry:i,ao:.72})));
+const bg=bush(['#3e5c25','#4a6a2b','#365420']),bf=bush(['#d8578e','#c23f7a','#e06a9d']),bl=[],fl=[];
+for(let i=0;i<2500&&bl.length<160;i++){const x=RR(-E,E),z=RR(-E,E);if(dRiver(x,z)>RT-4&&FR.fd(x,z)>-.1){const s=RR(.8,1.5);bl.push(mat(x,0,z,s,s,s,rnd()*6))}}
+for(let i=0;i<500&&fl.length<30;i++){const q=RP[rnd()*RP.length|0],x=q.x+RR(RT-5,RT+3),z=q.z+RR(-6,6);if(Math.abs(x)<E&&Math.abs(z)<E&&dRiver(x,z)>RT-6)fl.push(mat(x,0,z,1.2,1.2,1.2,rnd()*6))}
+const BL=new T.ConeGeometry(.09,1,3),tuft=[];
+for(let i=0;i<8;i++){const a=i*.8,h=RR(.7,1.4);tuft.push({g:BL,col:i%2?'#5b8035':'#6a9040',p:[Math.cos(a)*.2,h/2,Math.sin(a)*.2],s:[1,h,1],rx:Math.sin(a)*.3,rz:-Math.cos(a)*.3,ao:.55,yr:[-.5,.5]})}
+const tg=build(tuft,1),tl=[];
+for(let i=0;i<9000&&tl.length<5000;i++){const x=RR(-E-40,E+40),z=RR(-E-40,E+40);if(dRiver(x,z)>RT-6){const s=RR(.8,1.8);tl.push(mat(x,hill(x,z),z,s,s,s,rnd()*6))}}
+// берег: камни у воды и камыш
+for(let i=0,n=0;i<700&&n<110;i++){const q=RP[rnd()*RP.length|0],a=rnd()*6.28,r=q.w*RR(10.5,14),x=q.x+Math.cos(a)*r,z=q.z+Math.sin(a)*r;if(Math.abs(x)>E||Math.abs(z)>E||dRiver(x,z)<10.5)continue;n++;const s=RR(.5,1.3);rl[i%2].push(mat(x,.2*s,z,s,s,s,rnd()*6.28));sh.push(mat(x+.8,.12,z+.6,2*s,1,1.6*s))}
+for(let i=0,n=0;i<1800&&n<600;i++){const q=RP[rnd()*RP.length|0],a=rnd()*6.28,r=q.w*RR(11.5,15),x=q.x+Math.cos(a)*r,z=q.z+Math.sin(a)*r;if(Math.abs(x)>E+40||Math.abs(z)>E+40||dRiver(x,z)<11)continue;n++;const s=RR(1.4,2.3);tl.push(mat(x,hill(x,z),z,s,s,s,rnd()*6))}
+const fk=['#f6f1e4','#f2d04b','#e58ab0'].map(c=>build([{g:CYL,col:'#4f7a2e',p:[0,.35,0],s:[.05,.7,.05]},{g:ICO0,col:c,p:[0,.78,0],s:[.22,.13,.22]}],1)),fls=[[],[],[]];
+for(let i=0;i<1800;i++){const x=RR(-E,E),z=RR(-E,E);if(dRiver(x,z)>RT-6&&FR.fd(x,z)<-.02){const s=RR(.8,1.5);fls[i%3].push(mat(x,0,z,s,s,s))}}
+kinds.forEach((k,i)=>inst(k[0],k[1],lists[i],0,1));rk.forEach((k,i)=>inst(k[0],k[1],rl[i],0,1));
+inst(bg[0],bg[1],bl,0,1);inst(bf[0],bf[1],fl,0,1);inst(tg,null,tl);fk.forEach((g,i)=>inst(g,null,fls[i]));
+inst(new T.CircleGeometry(1,14).rotateX(-Math.PI/2),null,sh,new T.MeshBasicMaterial({color:0x2a3c17,transparent:true,opacity:.3,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
+LOW=0;WP=pts}
+
+
+// ---------- СТРОИТЕЛЬСТВО: сетка, дороги, декор ----------
+const CS=8,NC=128,H=NC/2,R=new Map(),K=(i,j)=>i+','+j,MT=[],MS=[],mx=ren.capabilities.getMaxAnisotropy(),bar=document.getElementById('bar');
+const rc=new T.Raycaster(),pl=new T.Plane(new T.Vector3(0,1,0),0),pt=new T.Vector3(),PG=new T.PlaneGeometry(CS,CS).rotateX(-Math.PI/2),BX=new T.BoxGeometry(1,1,1);
+let mode='',drawing=0,lastC=null;
+const grid=new T.Mesh(new T.PlaneGeometry(NC*CS,NC*CS).rotateX(-Math.PI/2),new T.MeshBasicMaterial({transparent:true,depthWrite:false,map:(()=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');
+g.fillStyle='rgba(255,255,255,.10)';g.fillRect(0,0,128,128);g.strokeStyle='rgba(255,255,255,.6)';g.lineWidth=3;g.strokeRect(1.5,1.5,125,125);
+const t=new T.CanvasTexture(c);t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(NC,NC);t.anisotropy=mx;return t})()}));
+grid.position.y=.2;grid.visible=false;grid.renderOrder=3;
+const ghost=new T.Mesh(PG,new T.MeshBasicMaterial({transparent:true,opacity:.5,depthWrite:false}));ghost.position.y=.25;ghost.visible=false;ghost.renderOrder=4;scene.add(grid,ghost);
+const bits=m=>(m&1)+(m>>1&1)+(m>>2&1)+(m>>3&1),isR=(i,j)=>R.has(K(i,j)),mask=(i,j)=>(isR(i,j-1)?1:0)|(isR(i+1,j)?2:0)|(isR(i,j+1)?4:0)|(isR(i-1,j)?8:0);
+const can=(i,j)=>i>=-H&&i<H&&j>=-H&&j<H&&dRiver((i+.5)*CS,(j+.5)*CS)>RT;
+// текстура тайла дороги по маске соседей (N=1,E=2,S=4,W=8)
+function tileMat(m,sl){const MC=sl?MS:MT;if(MC[m])return MC[m];
+const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d'),u=32,C=128,D=[[0,-1],[1,0],[0,1],[-1,0]],A=D.filter((d,q)=>m>>q&1),n=A.length,EP=d=>[C+d[0]*C,C+d[1]*C];
+g.lineJoin='round';
+const line=(w,col)=>{g.strokeStyle=g.fillStyle=col;g.lineWidth=w*u;g.beginPath();
+if(n>=3){g.fillRect(C-w*u/2,C-w*u/2,w*u,w*u);A.forEach(d=>{g.moveTo(C,C);g.lineTo(...EP(d))})}
+else if(n){g.moveTo(...EP(A[0]));g.lineTo(C,C);if(n==2)g.lineTo(...EP(A[1]))}
+if(n)g.stroke();if(n<2){g.beginPath();g.arc(C,C,w*u/2,0,7);g.fill()}};
+if(sl){line(7.5,'#bdb299');line(7.375,'#ddd4bf');line(5.025,'#bdb299');line(4.9,'#d6ccb4')}else{line(7.5,'#b7ac92');
+line(7.2,'#e9e0cb');line(5.9,'#9dba6b');line(4.9,'#d6ccb4')}line(4.5,'#625a58');
+if(m==5||m==10){const v=m==5,L=o=>{g.beginPath();v?(g.moveTo(C+o*u,0),g.lineTo(C+o*u,256)):(g.moveTo(0,C+o*u),g.lineTo(256,C+o*u))};
+for(const o of[-.16,.16]){g.strokeStyle='#e8b93c';g.lineWidth=.12*u;L(o);g.stroke()}}
+else if(n==2){g.strokeStyle='#e8b93c';g.lineWidth=.12*u;const n0=[A[0][1],-A[0][0]],n1=[-A[1][1],A[1][0]],e0=EP(A[0]),e1=EP(A[1]);for(const o of[-.16,.16]){const k=o*u;g.beginPath();g.moveTo(e0[0]+n0[0]*k,e0[1]+n0[1]*k);g.lineTo(C+(n0[0]+n1[0])*k,C+(n0[1]+n1[1])*k);g.lineTo(e1[0]+n1[0]*k,e1[1]+n1[1]*k);g.stroke()}}
+else if(n>=3)A.forEach(d=>{g.save();g.translate(C+d[0]*3.1*u,C+d[1]*3.1*u);g.rotate(Math.atan2(d[1],d[0]));g.fillStyle='#f1ecdd';for(let k=-2;k<=2;k++)g.fillRect(-.4*u,(k*.85-.22)*u,.8*u,.44*u);g.restore()});
+if(sl){g.fillStyle='#bdb299';const T0=n==1?1:(m==5||m==10)?0:3;for(const d of A)for(let k=0;k<4;k++){const q=d[0]+d[1]>0?k+4:k,t=d[0]+d[1]>0?k:4-k,x=q*32;if(t<T0)continue;
+if(d[0]){g.fillRect(x,C-3.75*u,2,1.3*u);g.fillRect(x,C+2.45*u,2,1.3*u)}else{g.fillRect(C-3.75*u,x,1.3*u,2);g.fillRect(C+2.45*u,x,1.3*u,2)}}}
+g.globalCompositeOperation='source-atop';for(let i=0;i<900;i++){g.fillStyle=rnd()<.5?'rgba(0,0,0,.07)':'rgba(255,255,255,.07)';g.fillRect(rnd()*256,rnd()*256,2,2)}
+const t=new T.CanvasTexture(c);t.anisotropy=mx;
+return MC[m]=new T.MeshLambertMaterial({map:t,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4})}
+function clearNat(x0,z0,x1,z1){for(const[m,arr]of NAT){let ch=0;for(let i=0;i<arr.length;i++){const a=arr[i];if(!a)continue;const x=a.elements[12],z=a.elements[14];if(x>x0&&x<x1&&z>z0&&z<z1){arr[i]=null;m.setMatrixAt(i,ZERO);ch=1}}if(ch)m.instanceMatrix.needsUpdate=true}}
+function setRoad(i,j,on,sl){const k=K(i,j),x=(i+.5)*CS,z=(j+.5)*CS;
+if(on&&!R.has(k)){const mesh=new T.Mesh(PG,tileMat(0));mesh.position.set(x,.02,z);mesh.renderOrder=2;mesh.receiveShadow=true;scene.add(mesh);R.set(k,{i,j,mesh,sl});clearNat(x-6.5,z-6.5,x+6.5,z+6.5);return 1}
+if(!on&&R.has(k)){scene.remove(R.get(k).mesh);R.delete(k);return 1}}
+const tile=(i,j)=>{const r=R.get(K(i,j));if(r&&r.mesh)r.mesh.material=tileMat(mask(i,j),r.sl)};
+// декор: фонари, деревья, почтовый ящик, столбики
+const hr=(i,j,k)=>{const s=Math.sin(i*127.1+j*311.7+k*74.7)*43758.5453;return s-Math.floor(s)};
+function dyn(k,cap,M){const m=new T.InstancedMesh(k[0],M||new T.MeshLambertMaterial({vertexColors:true}),cap),o=k[1]?new T.InstancedMesh(k[1],OUT,cap):null;m.castShadow=m.receiveShadow=true;m.frustumCulled=false;m.count=0;scene.add(m);
+if(o){o.instanceMatrix=m.instanceMatrix;o.frustumCulled=false;o.count=0;scene.add(o)}
+return a=>{a=a.slice(0,cap);a.forEach((x,i)=>m.setMatrixAt(i,x));m.count=a.length;if(o)o.count=a.length;m.instanceMatrix.needsUpdate=true}}
+const PP=['#c9708f','#dd89a6','#eaa2bb','#f3b9cb'],PO=['#a8421e','#c2552a','#d96a30','#e8883f'],mk=ps=>[build(ps,1),null];
+const TK=[kit(broadleaf()),kit(broadleaf()),kit(pine()),kit(broadleaf(PP)),kit(broadleaf(PO))].map(k=>dyn(k,500));
+const LK=dyn(mk([{g:CYL,col:'#2f363d',p:[0,.35,0],s:[.38,.7,.38],ao:.6,yr:[-.5,.5]},{g:CYL,col:'#3c454d',p:[0,.9,0],s:[.25,.4,.25]},{g:CYL,col:'#46525e',p:[0,3.75,0],s:[.17,5.7,.17]},{g:CYL,col:'#46525e',p:[-.3,6.9,0],s:[.1,.9,.1],rz:Math.PI/4},{g:CYL,col:'#46525e',p:[-1.5,7.2,0],s:[.075,1.8,.075],rz:Math.PI/2},{g:ICOL,col:'#5a646e',p:[-2.25,7.1,0],s:[.7,.13,.3]},{g:BX,col:'#fff2b8',p:[-2.25,6.97,0],s:[.9,.03,.34]}]),800);
+const MK=dyn(mk([{g:CYL,col:'#4a4f58',p:[0,.5,0],s:[.1,1,.1]},{g:BX,col:'#2f5fa6',p:[0,1.2,0],s:[.7,.55,.5]}]),80);
+const BK=dyn(mk([{g:CYL,col:'#e2a62c',p:[0,.45,0],s:[.2,.9,.2]},{g:ICO0,col:'#f6d06a',p:[0,.95,0],s:[.16,.1,.16]}]),240);
+const SK=dyn([new T.CircleGeometry(1,14).rotateX(-Math.PI/2),null],1500,new T.MeshBasicMaterial({color:0x2a3c17,transparent:true,opacity:.3,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
+function deco(){const T5=[[],[],[],[],[]],lp=[],ml=[],bl=[],SD=[],D=[[0,-1],[1,0],[0,1],[-1,0]];
+for(const{i,j,br}of R.values()){if(br)continue;const x=(i+.5)*CS,z=(j+.5)*CS,m=mask(i,j),n=bits(m),A=D.filter((d,q)=>m>>q&1),h=k=>hr(i,j,k);
+const lamp=(ox,oz,wx,wz)=>lp.push(mat(x+ox,.02,z+oz,1,1,1,Math.atan2(wz,-wx)));
+if(m==5||m==10){if((i+j)%2==0){const s=h(1)<.5?-1:1,a=(h(2)-.5)*2;m==5?lamp(s*2.7,a,-s,0):lamp(a,s*2.7,0,-s)}}
+else if(n>=3){lamp(2.7,2.7,-1,-1);lamp(-2.7,-2.7,1,1)}
+else if(n==2){if(h(3)<.5){const a=A[0][0]+A[1][0],b=A[0][1]+A[1][1];lamp(2.7*a,2.7*b,-a,-b)}}
+else if(n==1){const d=A[0],e=[-d[0],-d[1]],p=[-d[1],d[0]];ml.push(mat(x+e[0]*2.9+p[0]*.9,.02,z+e[1]*2.9+p[1]*.9,1,1,1,h(4)*6.28));
+for(const s of[-1,1])bl.push(mat(x+e[0]*2.7+p[0]*1.8*s,.02,z+e[1]*2.7+p[1]*1.8*s,1,1,1));lamp(e[0]*2.7,e[1]*2.7,-e[0],-e[1])}}
+TK.forEach((f,k)=>f(T5[k]));LK(lp);MK(ml);BK(bl);SK(SD)}
+// ввод: дорога линией (старт → финиш), предпросмотр, цена, правила, отмена
+const COST=10,REFUND=5,D4=[[0,-1],[1,0],[0,1],[-1,0]],$=id=>document.getElementById(id),eq=(a,b)=>!!a&&!!b&&a[0]==b[0]&&a[1]==b[1],buzz=p=>navigator.vibrate&&navigator.vibrate(p||12);
+const mEl=$('money'),tip=$('tip'),hint=$('hint'),opts=$('opts'),pops=[],hist=[],pool=[],pv=new T.Vector3();
+let money=5000,AN=null,cur=null,endCell=null,started=0,shape='line',flip=0,tipDy=40;
+const PM={new:0x7fd05a,have:0x6ab7e8,bad:0xe05a4a,cut:0xb86a62,none:0xbdbdbd,bridge:0xf3a77f},PMat={};
+for(const k in PM)PMat[k]=new T.MeshBasicMaterial({color:PM[k],transparent:true,opacity:.6,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-6});
+const flag=new T.Group();{const L=c=>new T.MeshLambertMaterial({color:c}),a=new T.Mesh(new T.CylinderGeometry(.18,.18,6,8),L(0xf6f1e4)),b=new T.Mesh(new T.ConeGeometry(1.5,3.2,3),L(0xf3a77f)),c=new T.Mesh(new T.SphereGeometry(.45,10,8),L(0xe8b93c));
+a.position.y=3;b.rotation.z=-Math.PI/2;b.position.set(1.7,5,0);c.position.y=6.1;flag.add(a,b,c);flag.visible=false;scene.add(flag)}
+function cellAt(e){rc.setFromCamera({x:e.clientX/innerWidth*2-1,y:-e.clientY/innerHeight*2+1},cam);const p=rc.ray.intersectPlane(pl,pt);
+return p?[Math.max(-H-1,Math.min(H,Math.floor(p.x/CS))),Math.max(-H-1,Math.min(H,Math.floor(p.z/CS)))]:null}
+function seg(p,a,b){let[i,j]=a;const di=Math.sign(b[0]-i),dj=Math.sign(b[1]-j);if(!p.length)p.push([i,j]);while(i!=b[0]||j!=b[1]){i+=di;j+=dj;p.push([i,j])}}
+function route(a,b){const p=[],dx=Math.abs(b[0]-a[0]),dy=Math.abs(b[1]-a[1]);
+if(shape=='line')seg(p,a,dx>=dy?[b[0],a[1]]:[a[0],b[1]]);
+else{const m=(dx>=dy)!=!!flip?[b[0],a[1]]:[a[0],b[1]];seg(p,a,m);seg(p,m,b)}return p}
+// мосты: вода → мост, если есть берег с обеих сторон, прямо, не длиннее MAXB, не стыкуется с другим мостом
+const inb=(i,j)=>i>=-H&&i<H&&j>=-H&&j<H,BCOST=40,BREF=20,MAXB=12,BRG=new Map();
+function plan(path){const add=[],bg=[],st=[],L=path.length;let why='',cut=0,cost=0,k=0;
+const bad=(w,n)=>{for(let q=0;q<n;q++)st.push(q?'cut':'bad');why=w;cut=1;k+=n},near=(i,j,k)=>D4.some(([a,b])=>{const n=[i+a,j+b];return isR(n[0],n[1])&&!eq(n,path[k-1])&&!eq(n,path[k+1])});
+while(k<L){const[i,j]=path[k];
+if(cut){st.push('cut');k++;continue}
+const r=R.get(K(i,j));
+if(r){const d=path[k+1]||path[k-1];if(r.br&&d&&(d[0]!=i?'x':'z')!=BRG.get(r.br).ax)bad('🚧 Мост нельзя пересекать',1);else{st.push('have');k++}continue}
+if(can(i,j)){const w=k&&k<L-1&&near(i,j,k)?'🚧 Слишком близко к дороге':cost+COST>money?'🪙 Не хватает денег':'';if(w)bad(w,1);else{st.push('new');cost+=COST;add.push([i,j]);k++}continue}
+if(!inb(i,j)){bad('🗺 Край карты',1);continue}
+let e=k;while(e<L&&!isR(path[e][0],path[e][1])&&!can(path[e][0],path[e][1])&&inb(path[e][0],path[e][1]))e++;
+const run=path.slice(k,e),n=run.length,pr=path[k-1],nx=path[e],ax=pr&&pr[1]==run[0][1]?'x':'z',
+w=!pr?'🌉 Мост начинай с берега':e==L?'🌉 Мост должен кончаться на берегу':!inb(nx[0],nx[1])?'🗺 Край карты':n>MAXB?'🌉 Мост длиннее '+MAXB+' клеток':!(run.every(c=>c[0]==run[0][0])||run.every(c=>c[1]==run[0][1]))?'🌉 Мост не поворачивает':[pr,nx].some(c=>R.get(K(c[0],c[1]))?.br)?'🌉 Мосты не стыкуют':run.some((c,q)=>near(c[0],c[1],k+q))?'🚧 Слишком близко к дороге':cost+n*BCOST>money?'🪙 Не хватает денег':'';
+if(w)bad(w,n);else{for(let q=0;q<n;q++)st.push('bridge');cost+=n*BCOST;bg.push({c:run.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]),ax});k=e}}
+return{add,bg,st,cost,why}}
+function showPrev(path,st){path.forEach((c,k)=>{let m=pool[k];if(!m){m=pool[k]=new T.Mesh(PG,PMat.new);m.renderOrder=4;m.scale.set(.94,1,.94);scene.add(m)}
+m.material=PMat[st[k]];m.position.set((c[0]+.5)*CS,.3,(c[1]+.5)*CS);m.visible=true});for(let k=path.length;k<pool.length;k++)pool[k].visible=false}
+function label(t,bad){tip.textContent=t;tip.classList.toggle('bad',!!bad);tip.style.display='block'}
+function hidePrev(){pool.forEach(m=>m.visible=false);flag.visible=false;tip.style.display='none'}
+function update(){if(!(mode&&AN&&cur)){hidePrev();return}
+const path=route(AN,cur),er=mode=='erase';endCell=path[path.length-1];flag.position.x=(AN[0]+.5)*CS;flag.position.z=(AN[1]+.5)*CS;flag.visible=true;
+if(er){const ids=new Set(),ex=[],pe=path;let g=0;pe.forEach(c=>{const r=R.get(K(c[0],c[1]));if(!r)return;if(!r.br)g+=REFUND;else if(!ids.has(r.br)){ids.add(r.br);const b=BRG.get(r.br);g+=b.c.length*BREF;b.c.forEach(q=>{if(!pe.some(x=>eq(x,q)))ex.push(q)})}});
+const all=pe.concat(ex);showPrev(all,all.map(c=>isR(c[0],c[1])?'bad':'none'));label(g?'🧹 +🪙'+g:'Тут пусто',!g)}
+else{const p=plan(path),a=p.add.length,nb=p.bg.reduce((t,b)=>t+b.c.length,0),sp=p.bg.reduce((t,b)=>t+spans(b.c.length*CS),0);showPrev(path,p.st);
+label(p.why?p.why+(a+nb?' · построю '+(a+nb):''):a+nb?(nb?'🌉 '+nb+(sp>1?' ('+sp+' пр.)':'')+' ':'')+(a?'🛣 '+a+' ':'')+'· 🪙'+p.cost:'✔ Уже есть',!!p.why)}}
+function ui(){sync();$('undo').disabled=!hist.length;opts.style.display=(mode=='road'||mode=='st')?'flex':'none';
+opts.querySelectorAll('[data-s]').forEach(b=>b.classList.toggle('on',b.dataset.s==shape));
+$('flip').style.display=shape=='elbow'?'':'none';$('cancel').style.display=AN?'':'none';hint.style.display=mode?'':'none';
+hint.textContent=mode=='erase'?(AN?'Отпусти — снесу':'Тапни по дороге или протяни линию'):AN?'Отпусти или тапни — построю':'Протяни линию или тапни старт'}
+function setMoney(v){money=v;mEl.textContent='🪙 '+v;mEl.classList.remove('bump');void mEl.offsetWidth;mEl.classList.add('bump')}
+function refresh(cs){const seen=new Set();for(const[i,j]of cs)for(const[a,b]of[[0,0],...D4,[1,1],[1,-1],[-1,1],[-1,-1]]){const k=K(i+a,j+b);if(!seen.has(k)){seen.add(k);tile(i+a,j+b)}}deco()}
+function pop(i,j,d){const r=R.get(K(i,j));r.mesh.scale.set(.01,1,.01);pops.push({m:r.mesh,t:-d})}
+// мост: горбатый настил по дуге, перила с шариками, опоры в воде; строится целиком и сносится целиком
+// мост — стальная ферма «Паркер» (тёмная сталь, как на фото): число пролётов, шаг панелей и высота фермы подстраиваются под ширину реки;
+// между пролётами — бетонные быки с «ледорезами»; короткие мосты (<20) — балочные. Настил — та же текстура, что у дороги (асфальт 4.5, двойная жёлтая, белые края);
+// от 5 клеток — подвесной мост «как Золотые Ворота» (оранжевые башни и тросы), короче — балочный с оранжевыми перилами
+let DTX;function deckMat(){if(DTX)return DTX;const c=document.createElement('canvas');c.width=157;c.height=256;const g=c.getContext('2d'),u=32,C=78.5;
+g.fillStyle='#d6ccb4';g.fillRect(0,0,157,256);g.fillStyle='#625a58';g.fillRect(C-2.25*u,0,4.5*u,256);
+const ln=(o,w,col)=>{g.fillStyle=col;g.fillRect(C+o*u-w*u/2,0,w*u,256)};
+ln(-.16,.12,'#e8b93c');ln(.16,.12,'#e8b93c');
+for(let i=0;i<560;i++){g.fillStyle=rnd()<.5?'rgba(0,0,0,.07)':'rgba(255,255,255,.07)';g.fillRect(rnd()*157,rnd()*256,2,2)}
+const t=new T.CanvasTexture(c);t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=mx;return DTX=new T.MeshLambertMaterial({map:t})}
+// тротуары: приподнятые, с швами плит, с обеих сторон; заходят на берег на клетку
+let STX;function sideMat(){if(STX)return STX;const c=document.createElement('canvas');c.width=42;c.height=256;const g=c.getContext('2d');
+g.fillStyle='#ddd4bf';g.fillRect(0,0,42,256);g.fillStyle='#bdb299';for(let y=0;y<256;y+=32)g.fillRect(0,y,42,2);g.fillRect(0,0,2,256);g.fillRect(40,0,2,256);
+for(let i=0;i<260;i++){g.fillStyle=rnd()<.5?'rgba(0,0,0,.06)':'rgba(255,255,255,.1)';g.fillRect(rnd()*42,rnd()*256,2,2)}
+const t=new T.CanvasTexture(c);t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=mx;return STX=new T.MeshLambertMaterial({map:t,polygonOffset:true,polygonOffsetFactor:-5,polygonOffsetUnits:-5})}
+const spans=L=>L<20?1:Math.ceil(L/28),CYH=new T.CylinderGeometry(1,1,1,6);
+function mkBridge(b,d){const c=b.c,n=c.length,L=n*CS,X=b.ax=='x',R0=12,Hf=2.2,ST='#2f3a36',SD='#232b28',CN='#b3ada0',CG='#8a8f92',gr=new T.Group(),
+hh=u=>.02+Hf*Math.sin(Math.PI/2*Math.min(1,Math.max(0,Math.min(u+3,L+3-u))/R0)),ps=[],sdy=u=>{const t=Math.min(1,Math.max(0,Math.min(u+3,L+3-u)/2));return .205*t*t*(3-2*t)},
+cx=X?c[0][0]*CS+L/2:(c[0][0]+.5)*CS,cz=X?(c[0][1]+.5)*CS:c[0][1]*CS+L/2,
+put=(g,col,u,v,y,sl,sy,sw,th)=>ps.push({g,col,p:X?[u-L/2,y,v]:[v,y,u-L/2],s:X?[sl,sy,sw]:[sw,sy,sl],rz:X?th:0,rx:X?0:-th}),
+bar=(u0,y0,u1,y1,v,t,col)=>put(BX,col,(u0+u1)/2,v,(y0+y1)/2,Math.hypot(u1-u0,y1-y0),t,t,Math.atan2(y1-y0,u1-u0)),
+cb=(u,v0,y0,v1,y1,t,col)=>{const a=Math.atan2(y1-y0,v1-v0),l=Math.hypot(v1-v0,y1-y0),m=(v0+v1)/2;ps.push({g:BX,col,p:X?[u-L/2,(y0+y1)/2,m]:[m,(y0+y1)/2,u-L/2],s:X?[t,t,l]:[l,t,t],rx:X?-a:0,rz:X?0:a})},
+strip=(v0,v1,ua,ub,dy,mt)=>{const m=Math.ceil((ub-ua)/3),dd=(ub-ua)/m,P=[],U=[],I=[];
+for(let q=0;q<=m;q++){const u=ua+q*dd,h=hh(u)+(typeof dy=='function'?dy(u):dy),w=u-L/2;P.push(...(X?[w,h,v0,w,h,v1]:[v0,h,w,v1,h,w]));U.push(0,u/CS,1,u/CS);if(q<m){const k=q*2;I.push(...(X?[k,k+1,k+2,k+1,k+3,k+2]:[k,k+2,k+1,k+1,k+2,k+3]))}}
+const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(P,3));g.setAttribute('uv',new T.Float32BufferAttribute(U,2));g.setIndex(I);g.computeVertexNormals();const o=new T.Mesh(g,mt);o.receiveShadow=true;gr.add(o)};
+const truss=L>=20,nsp=spans(L),S=L/nsp,N=Math.ceil((L+6)/3),du=(L+6)/N,M2=Math.ceil((L+16)/3),d2=(L+16)/M2;
+// настил: балка, отбойник у проезжей части, перила у края тротуара
+for(let q=0;q<N;q++){const u=-3+q*du,um=u+du/2,hm=hh(um),th=Math.atan2(hh(u+du)-hh(u),du),sl=du*1.06;put(BX,SD,um,0,hm-.7,sl,.9,9,th);
+for(const s of[-1,1]){put(BX,CG,um,s*2.55,hm+.75,sl,.28,.1,th);put(BX,ST,um,s*3.75,hm+1.1,sl,.1,.12,th);put(BX,ST,um,s*3.75,hm+.65,sl,.08,.1,th);
+if(q%2==0){put(BX,SD,um,s*2.55,hm+.45,.14,.7,.14,th);put(BX,ST,um,s*3.75,hm+.7,.12,1.1,.12,th)}
+if(!truss)put(BX,SD,um,s*4.05,hm-.05,sl,1.6,.4,th)}}
+for(let q=0;q<M2;q++){const u=-8+q*d2,um=u+d2/2,y0=hh(u)+sdy(u),y1=hh(u+d2)+sdy(u+d2),th=Math.atan2(y1-y0,d2);for(const s of[-1,1])put(BX,'#cfc6ae',um,s*3.1,(y0+y1)/2-.25/Math.cos(th)-.012,d2*1.06,.5,1.3,th)}
+strip(-2.45,2.45,-3,L+3,0,deckMat());strip(2.45,3.75,-8,L+8,sdy,sideMat());strip(-3.75,-2.45,-8,L+8,sdy,sideMat());
+for(const u of[1.2,L-1.2])for(const s of[-1,1])put(BX,CN,u,s*4.2,hh(u)-.2,2.6,1.4,1.8,0);
+// ферма: на каждый пролёт — панели ~4 м, высота ~0.3 пролёта; пояса, стойки, раскосы, портальные рамы
+if(truss){const P=Math.max(4,Math.round(S/4)),H=Math.min(8.5,Math.max(5.5,S*.3)),V=4.2,w=S/P;
+for(let k=0;k<nsp;k++){const u0=k*S,U=i=>u0+i*w,B=i=>hh(U(i))+.12,Tp=i=>{const t=2*i/P-1;return hh(U(i))+H*(.7+.3*(1-t*t))};
+for(const s of[-1,1]){const v=s*V;
+for(let i=0;i<P;i++)bar(U(i),B(i),U(i+1),B(i+1),v,.5,SD);
+bar(U(0),B(0),U(1),Tp(1),v,.6,SD);bar(U(P),B(P),U(P-1),Tp(P-1),v,.6,SD);
+for(let i=1;i<P-1;i++)bar(U(i),Tp(i),U(i+1),Tp(i+1),v,.6,SD);
+for(let i=1;i<P;i++)bar(U(i),B(i),U(i),Tp(i),v,.36,ST);
+for(let i=1;i<P-1;i++){const m=i+.5-P/2;if(m<=0)bar(U(i),Tp(i),U(i+1),B(i+1),v,.3,ST);if(m>=0)bar(U(i+1),Tp(i+1),U(i),B(i),v,.3,ST)}}
+for(let i=1;i<P;i++)cb(U(i),-V,Tp(i),V,Tp(i),.5,SD);
+for(const i of[1,P-1]){const y=Tp(i);cb(U(i),-V,y-1.8,V,y-1.8,.4,SD);cb(U(i),-V,y-1.8,V,y,.28,ST);cb(U(i),V,y-1.8,-V,y,.28,ST)}}
+// быки между пролётами: шестигранник с острыми «ледорезами» вдоль течения
+for(let k=1;k<nsp;k++){const u=k*S,h=hh(u)-.7;ps.push({g:CYH,col:CN,p:X?[u-L/2,(h-2.5)/2,0]:[0,(h-2.5)/2,u-L/2],s:[1.7,h+2.5,4.8],ry:X?0:Math.PI/2});put(BX,'#6f757a',u,0,h-.1,3.4,.5,9.4,0)}}
+const sm=new T.Mesh(build(ps,1),LM);sm.castShadow=sm.receiveShadow=true;gr.add(sm);
+gr.position.set(cx,0,cz);gr.scale.setScalar(.01);scene.add(gr);
+const id=K(c[0][0],c[0][1]);c.forEach(([i,j])=>R.set(K(i,j),{i,j,mesh:null,br:id}));BRG.set(id,{id,c,ax:b.ax,m:gr,hh,L,X});pops.push({m:gr,t:-(d||0),y:1})}
+function rmBridge(id){const b=BRG.get(id);if(!b)return;scene.remove(b.m);b.m.traverse(o=>o.geometry&&!o.geometry.userData.keep&&o.geometry.dispose());b.c.forEach(([i,j])=>R.delete(K(i,j)));BRG.delete(id)}
+const bid=b=>K(b.c[0][0],b.c[0][1]),bcells=l=>[].concat(...l.map(b=>b.c));
+function doBuild(p){let d=0;p.add.forEach(([i,j,sl])=>{if(setRoad(i,j,1,sl))pop(i,j,d++*.035)});p.bg.forEach(b=>{mkBridge(b,d*.035);d+=b.c.length});
+setMoney(money-p.cost);hist.push({a:p.add,bg:p.bg,r:[],rb:[],m:-p.cost});refresh(p.add.concat(bcells(p.bg)));buzz()}
+function doErase(path){const rem=[],rb=[],seen=new Set();let g=0;
+path.forEach(([i,j])=>{const r=R.get(K(i,j));if(!r)return;if(!r.br){rem.push([i,j,r.sl]);g+=REFUND}else if(!seen.has(r.br)){seen.add(r.br);const b=BRG.get(r.br);rb.push({c:b.c,ax:b.ax});g+=b.c.length*BREF}});
+if(!g)return;rem.forEach(([i,j])=>setRoad(i,j,0));rb.forEach(b=>rmBridge(bid(b)));setMoney(money+g);hist.push({a:[],bg:[],r:rem,rb,m:g});refresh(rem.concat(bcells(rb)));buzz()}
+function undo(){const h=hist.pop();if(!h)return;h.a.forEach(([i,j])=>setRoad(i,j,0));h.bg.forEach(b=>rmBridge(bid(b)));let n=0;
+h.r.forEach(([i,j,sl])=>{if(setRoad(i,j,1,sl))pop(i,j,n++*.02)});h.rb.forEach(b=>mkBridge(b,n*.02));setMoney(money-h.m);refresh(h.a.concat(h.r,bcells(h.bg),bcells(h.rb)));ui()}
+function reset(){AN=null;started=0;drawing=0;update();ui()}
+function cancelDrag(){if(!drawing)return;drawing=0;if(started||mode=='erase')reset();else update()}
+function ghostAt(c){ghost.position.set((c[0]+.5)*CS,.25,(c[1]+.5)*CS);ghost.material.color.set((mode=='road'||mode=='st')?(can(c[0],c[1])?0x7fd05a:inb(c[0],c[1])?0xf3a77f:0xe05a4a):(isR(c[0],c[1])?0xe05a4a:0xb0b0b0));ghost.visible=!AN}
+function hover(e){const c=cellAt(e);if(!c){ghost.visible=false;return}cur=c;tipDy=34;ghostAt(c);if(AN)update()}
+function down(e){const c=cellAt(e);if(!c)return;drawing=1;cur=c;tipDy=e.pointerType=='mouse'?34:86;if(!AN){AN=c;started=1;flip=0}else started=0;ghostAt(c);update();ui()}
+function drag(e){const c=cellAt(e);if(!c)return;cur=c;ghostAt(c);update()}
+function commit(){const path=route(AN,cur);if(mode=='erase')doErase(path);else{const p=plan(path);if(mode=='st')p.add=p.add.map(([i,j])=>[i,j,1]);p.add.length||p.bg.length?doBuild(p):buzz([30,40,30])}reset()}
+function release(){drawing=0;if(!AN)return;if(!eq(AN,cur)){commit();return}
+if(mode=='erase'){doErase([AN]);reset()}else if(started)ui();else reset()}
+function tick(dt,t){const w=t*.006,o=.5+.14*Math.sin(w);for(const k in PMat)PMat[k].opacity=o;
+if(flag.visible){flag.position.y=Math.abs(Math.sin(w*.8))*.9;flag.rotation.y=Math.sin(w*.5)*.25}
+for(let k=pops.length;k--;){const q=pops[k];q.t+=dt;if(q.t<0)continue;const u=Math.min(1,q.t/.38),s=1+2.70158*Math.pow(u-1,3)+1.70158*Math.pow(u-1,2);q.m.scale.set(s,q.y?s:1,s);if(u>=1){q.m.scale.set(1,1,1);pops.splice(k,1)}}
+if(endCell&&tip.style.display=='block'){cam.updateMatrixWorld();pv.set((endCell[0]+.5)*CS,2,(endCell[1]+.5)*CS).project(cam);
+tip.style.left=Math.max(60,Math.min(innerWidth-60,(pv.x+1)/2*innerWidth))+'px';tip.style.top=Math.max(110,(1-pv.y)/2*innerHeight-tipDy)+'px'}}
+scene.remove(grid);
+const grid2=(()=>{const p=[],ix=[],w=.1,a=NC*CS/2;let n=0;
+for(let k=0;k<=NC;k++){const c=-a+k*CS;p.push(c-w,0,-a,c+w,0,-a,c+w,0,a,c-w,0,a,-a,0,c-w,-a,0,c+w,a,0,c+w,a,0,c-w);
+for(let q=0;q<2;q++){ix.push(n,n+1,n+2,n,n+2,n+3);n+=4}}
+const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(p,3));g.setIndex(ix);
+const m=new T.Mesh(g,new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.7,side:T.DoubleSide,depthWrite:false}));m.position.y=.2;m.renderOrder=3;m.visible=false;scene.add(m);return m})();
+const rpEl=$('rp'),toolEl=$('tool'),RMN={road:'Дорога',st:'Улица',erase:'Снос'};let panelOpen=0;
+rpEl.querySelectorAll('.pr').forEach(e=>e.textContent='🪙 '+COST+' / кл.');
+function setMode(m){mode=m;grid2.visible=!!mode;ghost.visible=false;reset()}
+function sync(){const rm=mode=='road'||mode=='st';$('b-road').classList.toggle('on',!!panelOpen||rm);$('b-erase').classList.toggle('on',mode=='erase');rpEl.style.display=panelOpen?'block':'none';rpEl.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t==mode));toolEl.hidden=!mode;$('toolicon').innerHTML=(mode=='erase'?$('b-erase'):$('b-road')).innerHTML;$('toolname').textContent=mode?RMN[mode]:''}
+$('b-road').onclick=()=>{panelOpen^=1;if(panelOpen&&mode=='erase')setMode('');else sync()};
+$('b-erase').onclick=()=>{panelOpen=0;setMode(mode=='erase'?'':'erase')};
+rpEl.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.t)setMode(b.dataset.t);else if(b.id=='rpx'){panelOpen=0;sync()}};
+$('toolx').onclick=()=>setMode('');
+opts.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.s){shape=b.dataset.s;flip=0}else if(b.id=='flip')flip^=1;else if(b.id=='cancel')reset();ui();update()};
+$('undo').onclick=undo;
+addEventListener('keydown',e=>{if(e.key=='Escape')reset();else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()=='z'){e.preventDefault();undo()}else if(e.key=='Shift'&&!e.repeat&&AN&&shape=='elbow'){flip^=1;update()}});
+setMoney(money);ui();
+// ---------- камера ----------
+const S={tx:15,tz:10,th:.15,ph:1.25,d:45};
+function setCam(){const sp=Math.sin(S.ph);cam.position.set(S.tx+S.d*sp*Math.sin(S.th),S.d*Math.cos(S.ph),S.tz+S.d*sp*Math.cos(S.th));cam.lookAt(S.tx,0,S.tz)}
+const P=new Map(),cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+function pan(dx,dy){const k=2*S.d*Math.tan(.3927)/innerHeight,f=1/Math.max(.3,Math.cos(S.ph)),sn=Math.sin(S.th),cs=Math.cos(S.th);
+S.tx=cl(S.tx-cs*dx*k-sn*dy*k*f,-530,530);S.tz=cl(S.tz+sn*dx*k-cs*dy*k*f,-530,530)}
+const cv=ren.domElement;
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);P.set(e.pointerId,[e.clientX,e.clientY]);if(mode&&P.size==1&&e.button===0)down(e)});
+const up=e=>{P.delete(e.pointerId);if(!P.size&&drawing)release()};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',e=>{P.delete(e.pointerId);cancelDrag()});
+cv.addEventListener('pointermove',e=>{if(mode&&!drawing)hover(e);if(!P.has(e.pointerId))return;
+const o=[...P.values()].map(v=>v.slice());P.set(e.pointerId,[e.clientX,e.clientY]);const n=[...P.values()];
+if(n.length==1){const dx=n[0][0]-o[0][0],dy=n[0][1]-o[0][1];
+if(e.buttons&2){S.th-=dx*.006;S.ph=cl(S.ph-dy*.005,.12,1.45)}else if(drawing)drag(e);else pan(dx,dy)}
+else if(n.length==2){cancelDrag();const l=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]),an=(a,b)=>Math.atan2(b[1]-a[1],b[0]-a[0]);
+const r=l(n[0],n[1])/Math.max(1,l(o[0],o[1]));S.d=cl(S.d/r,8,320);
+let da=an(n[0],n[1])-an(o[0],o[1]);if(da>Math.PI)da-=6.283;if(da<-Math.PI)da+=6.283;S.th-=da;
+S.ph=cl(S.ph-((n[0][1]+n[1][1])-(o[0][1]+o[1][1]))*.0025,.12,1.45);
+pan((n[0][0]+n[1][0]-o[0][0]-o[1][0])/2,(n[0][1]+n[1][1]-o[0][1]-o[1][1])/2)}});
+cv.addEventListener('wheel',e=>{e.preventDefault();S.d=cl(S.d*Math.exp(e.deltaY*.001),8,320)},{passive:false});
+function resize(){ren.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
+addEventListener('resize',resize);resize();
+// ---------- меню и создание мира ----------
+const E0=H*CS,OP={r:0,f:0,w:0},mnu=$('menu');let GM=0,HAS=0,SD=0,SV={};
+function resetGame(){[...BRG.keys()].forEach(rmBridge);R.forEach(r=>r.mesh&&scene.remove(r.mesh));R.clear();hist.length=0;pops.length=0;deco();setMoney(5000);reset();flag.visible=false}
+function setView(){const q=RP.reduce((a,p)=>Math.hypot(p.x,p.z)<Math.hypot(a.x,a.z)?p:a,RP[0]||{x:0,z:0});S.tx=q.x;S.tz=q.z}
+function drawMM(){const c=$('mm'),g=c.getContext('2d'),W=c.width,k=W/1300,X=v=>(v+650)*k,a=X(-E0),w=E0*2*k;
+g.fillStyle='#7f9c52';g.fillRect(0,0,W,W);g.fillStyle='#93b05f';g.fillRect(a,a,w,w);
+g.strokeStyle='#5f9fc4';g.lineCap='round';CH.forEach(c=>c.forEach((p,i)=>{if(i%3||!i)return;const q=c[i-3];g.lineWidth=Math.max(1.5,18*p.w*k);g.beginPath();g.moveTo(X(q.x),X(q.z));g.lineTo(X(p.x),X(p.z));g.stroke()}));
+g.fillStyle='#35541f';WP.forEach(p=>g.fillRect(X(p[0])-1,X(p[1])-1,2.4,2.4));g.strokeStyle='#f1ecdd';g.lineWidth=2;g.strokeRect(a,a,w,w);
+g.font='700 12px system-ui,sans-serif';g.textBaseline='top';
+const tag=(t,x,y)=>{const m=g.measureText(t).width;g.fillStyle='rgba(30,40,30,.62)';g.fillRect(x-4,y-3,m+8,19);g.fillStyle='#FFF7F4';g.fillText(t,x,y)};
+tag('🌊 '+RN,8,8);tag('🌲 '+FN,8,W-27)}
+function newWorld(sd){sd=sd||(Math.random()*9e8|0)+1;$('load').style.display='flex';
+setTimeout(()=>{try{genWorld(sd,OP);SD=sd;HAS=0;resetGame();setView();S.d=120;S.ph=1.05;drawMM();$('sin').value=sd}catch(e){console.error(e.message)}$('load').style.display='none';show(!$('m2').hidden)},80)}
+const show=a=>{$('m1').hidden=a;$('m2').hidden=!a;$('play').textContent=HAS?'▶ Продолжить':'▶ Начать игру'};
+function play(){if(HAS)Object.assign(S,SV);else{setView();S.d=55;S.ph=1.25;S.th=.15}GM=HAS=1;document.body.classList.remove('menu');mnu.style.display='none';panelOpen=0;setMode('')}
+$('play').onclick=play;$('go').onclick=play;$('newb').onclick=()=>show(1);$('back').onclick=()=>show(0);$('dice').onclick=()=>newWorld(0);
+$('sin').onchange=e=>newWorld(parseInt(e.target.value)||0);
+document.querySelectorAll('.chips').forEach(c=>c.onclick=e=>{const b=e.target.closest('button');if(!b)return;const i=[...c.children].indexOf(b);OP[c.dataset.k]=i;[...c.children].forEach((x,j)=>x.classList.toggle('on',j==i));newWorld(SD)});
+$('mbtn').onclick=()=>{SV={...S};GM=0;cancelDrag();document.body.classList.add('menu');mnu.style.display='flex';show(0)};
+newWorld(0);
+let t0=performance.now();
+(function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,(t-t0)/1000);t0=t;
+wtex.offset.y-=dt*.03;if(!GM)S.th+=dt*.05;setCam();tick(dt,t);sky.position.copy(cam.position);
+const e=cl(S.d*1.3,40,150),sc=sun.shadow.camera;if(sc.right!==e){sc.left=sc.bottom=-e;sc.right=sc.top=e;sc.updateProjectionMatrix()}
+sun.target.position.set(S.tx,0,S.tz);sun.position.set(S.tx-60,130,S.tz+45);ren.render(scene,cam)})(t0);
+</script></body></html>

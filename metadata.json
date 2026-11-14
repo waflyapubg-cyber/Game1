@@ -1,0 +1,6 @@
+{
+  "name": "Мой город",
+  "description": "Градостроительный 3D симулятор с процедурной генерацией рек, мостов и дорог",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
